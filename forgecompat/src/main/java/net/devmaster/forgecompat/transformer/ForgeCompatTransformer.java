@@ -38,6 +38,7 @@ public class ForgeCompatTransformer {
      * Transform a class. Called by the CoreMod JS bridge.
      */
     public static ClassNode transform(String className, ClassNode classNode) {
+        net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Transforming class: {}", className);
         boolean modified = false;
         
         // Phase 1: Remap class hierarchy (superclass, interfaces)
@@ -74,6 +75,12 @@ public class ForgeCompatTransformer {
             }
         }
         
+        if (modified) {
+            net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Successfully transformed: {}", className);
+        } else {
+            net.devmaster.forgecompat.ForgeCompat.LOGGER.debug("[ForgeCompat] No changes needed for: {}", className);
+        }
+        
         return classNode;
     }
     
@@ -86,10 +93,15 @@ public class ForgeCompatTransformer {
         
         // Superclass
         String newSuper = TranslationRules.CLASS_RENAMES.get(cn.superName);
-        if (newSuper != null) { cn.superName = newSuper; modified = true; }
+        if (newSuper != null) { 
+            net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Superclass rename: {} → {}", cn.superName, newSuper);
+            cn.superName = newSuper; 
+            modified = true; 
+        }
         
         // Material → MaterialData in superclass
         if (MATERIAL_INTERNAL.equals(cn.superName)) {
+            net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Superclass Material → MaterialData");
             cn.superName = MATERIAL_DATA_INTERNAL;
             modified = true;
         }
@@ -98,11 +110,19 @@ public class ForgeCompatTransformer {
         for (int i = 0; i < cn.interfaces.size(); i++) {
             String iface = cn.interfaces.get(i);
             String renamed = TranslationRules.CLASS_RENAMES.get(iface);
-            if (renamed != null) { cn.interfaces.set(i, renamed); modified = true; }
+            if (renamed != null) { 
+                net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Interface rename: {} → {}", iface, renamed);
+                cn.interfaces.set(i, renamed); 
+                modified = true; 
+            }
             
             // Event renames
             String eventRenamed = TranslationRules.EVENT_RENAMES.get(iface);
-            if (eventRenamed != null) { cn.interfaces.set(i, eventRenamed); modified = true; }
+            if (eventRenamed != null) { 
+                net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Event interface rename: {} → {}", iface, eventRenamed);
+                cn.interfaces.set(i, eventRenamed); 
+                modified = true; 
+            }
         }
         
         return modified;
@@ -228,6 +248,7 @@ public class ForgeCompatTransformer {
                         if (flags != null) {
                             // SUCCESS: We know the material at compile time.
                             // Inline the flags directly.
+                            net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Material pattern detected: Material.{} → inlining property flags", materialName);
                             InsnList replacement = new InsnList();
                             
                             // Properties.of() — no args
@@ -299,6 +320,7 @@ public class ForgeCompatTransformer {
                             // Unknown material — fall back to CompatHelpers
                             // Rewrite: GETSTATIC Material.X → GETSTATIC MaterialData.X
                             // Rewrite: Properties.of(Material) → CompatHelpers.of(MaterialData)
+                            net.devmaster.forgecompat.ForgeCompat.LOGGER.warn("[ForgeCompat] Unknown material: {} - falling back to CompatHelpers", materialName);
                             fin.owner = MATERIAL_DATA_INTERNAL;
                             min.owner = COMPAT_HELPERS_INTERNAL;
                             min.name = "of";
@@ -387,6 +409,9 @@ public class ForgeCompatTransformer {
                 && insn.name.equals(ftm.fieldName())
                 && insn.desc.equals(ftm.fieldDesc())) {
                 
+                net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Field→Method: {}.{} → {}.{}()", 
+                    insn.owner, insn.name, ftm.owner(), ftm.methodName());
+                
                 // Replace GETFIELD with INVOKEVIRTUAL
                 insn.setOpcode(Opcodes.INVOKEVIRTUAL);
                 insn.name = ftm.methodName();
@@ -406,6 +431,8 @@ public class ForgeCompatTransformer {
         // Capability remaps
         for (CapabilityRemap cr : TranslationRules.CAPABILITY_REMAPS) {
             if (insn.owner.equals(cr.oldOwner()) && insn.name.equals(cr.oldField())) {
+                net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Capability remap: {}.{} → {}.{}", 
+                    cr.oldOwner(), cr.oldField(), cr.newOwner(), cr.newField());
                 insn.owner = cr.newOwner();
                 insn.name = cr.newField();
                 return true;
@@ -414,6 +441,8 @@ public class ForgeCompatTransformer {
         
         // Material.X → MaterialData.X (type change only, data is the same)
         if (insn.owner.equals(MATERIAL_INTERNAL)) {
+            net.devmaster.forgecompat.ForgeCompat.LOGGER.debug("[ForgeCompat] Material constant: Material.{} → MaterialData.{}", 
+                insn.name, insn.name);
             insn.owner = MATERIAL_DATA_INTERNAL;
             return true;
         }
@@ -431,6 +460,8 @@ public class ForgeCompatTransformer {
             if (insn.owner.equals(mr.owner())
                 && insn.name.equals(mr.oldName())
                 && insn.desc.equals(mr.oldDesc())) {
+                net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Method rename: {}.{}{} → {}.{}{}", 
+                    mr.owner(), mr.oldName(), mr.oldDesc(), mr.owner(), mr.newName(), mr.newDesc());
                 insn.name = mr.newName();
                 insn.desc = mr.newDesc();
                 return true;
@@ -440,6 +471,8 @@ public class ForgeCompatTransformer {
         // Remap method owner if it's a renamed class
         String newOwner = TranslationRules.CLASS_RENAMES.get(insn.owner);
         if (newOwner != null) {
+            net.devmaster.forgecompat.ForgeCompat.LOGGER.debug("[ForgeCompat] Class rename in method owner: {} → {}", 
+                insn.owner, newOwner);
             insn.owner = newOwner;
             return true;
         }
@@ -447,12 +480,16 @@ public class ForgeCompatTransformer {
         // Remap event class owners
         String newEventOwner = TranslationRules.EVENT_RENAMES.get(insn.owner);
         if (newEventOwner != null) {
+            net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Event rename: {} → {}", 
+                insn.owner, newEventOwner);
             insn.owner = newEventOwner;
             return true;
         }
         
         // Material → MaterialData in method owners
         if (insn.owner.equals(MATERIAL_INTERNAL)) {
+            net.devmaster.forgecompat.ForgeCompat.LOGGER.debug("[ForgeCompat] Material method owner → MaterialData: {}", 
+                insn.owner);
             insn.owner = MATERIAL_DATA_INTERNAL;
             return true;
         }

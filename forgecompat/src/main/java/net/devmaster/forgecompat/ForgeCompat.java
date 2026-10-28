@@ -26,7 +26,11 @@ public class ForgeCompat {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         IEventBus forgeEventBus = MinecraftForge.EVENT_BUS;
         
-        LOGGER.info("ForgeCompat initializing - bridging 1.19.2 mods to 1.20.1");
+        LOGGER.info("========================================");
+        LOGGER.info("ForgeCompat v0.1.0 initializing");
+        LOGGER.info("Bridging 1.19.2 Forge mods to 1.20.1");
+        LOGGER.info("Pure bytecode translation - no shims");
+        LOGGER.info("========================================");
         
         // Register event handlers for runtime adaptation
         modEventBus.addListener(this::onCommonSetup);

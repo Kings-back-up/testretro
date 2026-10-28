@@ -364,84 +364,12 @@ public class TranslationRules {
     }
     
     // ================================================================
-    // 7. REGISTRY TRANSLATIONS
-    //    How to translate old registry patterns to new ones.
-    //    These are handled as complex patterns in the transformer.
-    // ================================================================
-    
-    // In 1.19.2: DeferredRegister.create(ForgeRegistries.BLOCKS, modid)
-    // In 1.20.1: DeferredRegister.createBlocks(modid)
-    // 
-    // The transformer detects the pattern:
-    //   LDC modid
-    //   GETSTATIC ForgeRegistries.BLOCKS
-    //   INVOKESTATIC DeferredRegister.create(IForgeRegistry, String)DeferredRegister
-    // And rewrites to:
-    //   LDC modid
-    //   INVOKESTATIC DeferredRegister.createBlocks(String)DeferredRegister$Blocks
-    
-    public record RegistryFactoryRemap(
-        String forgeRegistriesField,   // e.g. "BLOCKS"
-        String newFactoryMethod,       // e.g. "createBlocks"
-        String newReturnType           // e.g. "Lnet/minecraftforge/registries/DeferredRegister$Blocks;"
-    ) {}
-    
-    public static final Map<String, RegistryFactoryRemap> REGISTRY_FACTORY_REMAPS = new HashMap<>();
-    static {
-        REGISTRY_FACTORY_REMAPS.put("BLOCKS", new RegistryFactoryRemap(
-            "BLOCKS", "createBlocks",
-            "Lnet/minecraftforge/registries/DeferredRegister$Blocks;"
-        ));
-        REGISTRY_FACTORY_REMAPS.put("ITEMS", new RegistryFactoryRemap(
-            "ITEMS", "createItems",
-            "Lnet/minecraftforge/registries/DeferredRegister$Items;"
-        ));
-        REGISTRY_FACTORY_REMAPS.put("FLUIDS", new RegistryFactoryRemap(
-            "FLUIDS", "createFluids",
-            "Lnet/minecraftforge/registries/DeferredRegister$Fluids;"
-        ));
-        REGISTRY_FACTORY_REMAPS.put("ENTITY_TYPES", new RegistryFactoryRemap(
-            "ENTITY_TYPES", "createEntityType",
-            "Lnet/minecraftforge/registries/DeferredRegister$EntityTypes;"
-        ));
-        REGISTRY_FACTORY_REMAPS.put("BLOCK_ENTITY_TYPES", new RegistryFactoryRemap(
-            "BLOCK_ENTITY_TYPES", "createBlockEntityType",
-            "Lnet/minecraftforge/registries/DeferredRegister$BlockEntityTypes;"
-        ));
-        REGISTRY_FACTORY_REMAPS.put("MOB_EFFECTS", new RegistryFactoryRemap(
-            "MOB_EFFECTS", "createMobEffects",
-            "Lnet/minecraftforge/registries/DeferredRegister$MobEffects;"
-        ));
-        REGISTRY_FACTORY_REMAPS.put("SOUND_EVENTS", new RegistryFactoryRemap(
-            "SOUND_EVENTS", "createSoundEvents",
-            "Lnet/minecraftforge/registries/DeferredRegister$SoundEvents;"
-        ));
-    }
-    
-    // ================================================================
-    // 8. RegistryObject → DeferredHolder type translation
-    //    RegistryObject<T> becomes DeferredHolder<Registry<T>, T>
-    //    But we need to know the registry type to fill in the first param.
-    //    We track this from the DeferredRegister type.
-    // ================================================================
-    
-    // When we see:
-    //   DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, MOD_ID);
-    //   RegistryObject<Block> MY_BLOCK = BLOCKS.register("name", supplier);
+    // NOTE: Registry API is IDENTICAL between Forge 1.19.2 and 1.20.1.
+    // DeferredRegister, RegistryObject, ForgeRegistries — all the same.
+    // The only registry-related change is Properties.of(Material) → Properties.of().mapColor(...)
+    // which is handled by the MATERIAL_FLAGS system above.
     //
-    // We rewrite to:
-    //   DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MOD_ID);
-    //   DeferredBlock<Block> MY_BLOCK = BLOCKS.register("name", supplier);
-    //
-    // The type mapping for the field/local variable:
-    public static final Map<String, String> REGISTRY_OBJECT_TYPE_MAP = new HashMap<>();
-    static {
-        // When the DeferredRegister is for Blocks:
-        REGISTRY_OBJECT_TYPE_MAP.put(
-            "Lnet/minecraftforge/registries/RegistryObject;",
-            "Lnet/minecraftforge/neoforge/registries/DeferredBlock;"  // for blocks
-        );
-        // Actually in 1.20.1 Forge (not NeoForge), it's still RegistryObject-like
-        // but returns DeferredHolder. Let's use DeferredHolder directly.
-    }
+    // (The DeferredBlock/DeferredHolder/createBlocks() stuff is NeoForge, not Forge.
+    // Don't confuse them!)
+    // ================================================================
 }

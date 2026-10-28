@@ -10,28 +10,21 @@ displayName="${mod_name}"
 authors="${mod_authors}"
 description='''${mod_description}'''
 
-# CoreMod configuration - this is how Forge loads our transformer
-[[accessTransformers]]
-# No AT needed for now
+# CoreMod declaration - this loads our bytecode transformer
+[[coremods]]
+    id = "forgecompat"
+    entrypoint = "forgecompat_coremod.js"
 
-# CoreMod entry point
 [[dependencies.${mod_id}]]
     modId="forge"
-    type="required"
+    mandatory=true
     versionRange="${forge_version_range}"
     ordering="NONE"
     side="BOTH"
 
 [[dependencies.${mod_id}]]
     modId="minecraft"
-    type="required"
+    mandatory=true
     versionRange="${minecraft_version_range}"
     ordering="NONE"
     side="BOTH"
-
-# CoreMod declaration
-[[coremods]]
-    # This tells Forge to load our JavaScript CoreMod
-    # The JS file bridges to our Java ForgeCompatTransformer
-    id = "forgecompat_coremod"
-    entrypoint = "forgecompat_coremod.js"

@@ -54,9 +54,9 @@ INVOKEVIRTUAL Properties.ignitedByLava()Properties
                   ['GETFIELD entity.level', 'INVOKEVIRTUAL entity.level()', 'field→method'],
                   ['INVOKEVIRTUAL ServerPlayer.getLevel()', 'INVOKEVIRTUAL serverLevel()', 'rename'],
                   ['GETSTATIC CapabilityItemHandler.X', 'GETSTATIC ForgeCapabilities.X', 'remap owner+field'],
-                  ['INVOKESTATIC DeferredRegister.create(ForgeRegistries.BLOCKS, id)', 'INVOKESTATIC DeferredRegister.createBlocks(id)', 'pattern rewrite'],
                   ['Material.isFlammable()', 'ICONST_1 (constant-folded)', 'inline constant'],
                   ['GETSTATIC MaterialColor.WOOD', 'GETSTATIC MapColor.WOOD', 'class rename'],
+                  ['DeferredRegister.create(ForgeRegistries.BLOCKS, id)', '(no change — same API!)', '✓ identical'],
                 ].map(([old, neo, strat], i) => (
                   <tr key={i} className="border-b border-gray-800/50 align-top">
                     <td className="py-3 px-3 text-red-300 whitespace-pre">{old}</td>

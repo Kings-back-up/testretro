@@ -1,7 +1,10 @@
 package net.minecraftforge.compat.transformer;
 
 import net.minecraftforge.compat.translate.TranslationRules;
-import net.minecraftforge.compat.translate.TranslationRules.*;
+import net.minecraftforge.compat.translate.TranslationRules.MethodRename;
+import net.minecraftforge.compat.translate.TranslationRules.FieldToMethod;
+import net.minecraftforge.compat.translate.TranslationRules.CapabilityRemap;
+import net.minecraftforge.compat.translate.TranslationRules.MaterialFlags;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -31,8 +34,6 @@ public class ForgeCompatTransformer {
     private static final String MATERIAL_DATA_INTERNAL = "net/minecraftforge/compat/translate/MaterialData";
     private static final String COMPAT_HELPERS_INTERNAL = "net/minecraftforge/compat/translate/CompatHelpers";
     private static final String PROPERTIES_INTERNAL = "net/minecraft/world/level/block/state/BlockBehaviour$Properties";
-    private static final String FORGE_REGISTRIES_INTERNAL = "net/minecraftforge/registries/ForgeRegistries";
-    private static final String DEFERRED_REGISTER_INTERNAL = "net/minecraftforge/registries/DeferredRegister";
     
     /**
      * Transform a class. Called by the CoreMod JS bridge.
@@ -127,7 +128,7 @@ public class ForgeCompatTransformer {
         
         // First pass: detect and handle multi-instruction patterns
         modified |= handleMaterialPattern(method);
-        modified |= handleRegistryFactoryPattern(method);
+        // Registry factory pattern is identical between 1.19.2 and 1.20.1 Forge - no transformation needed
         
         // Second pass: single-instruction transformations
         AbstractInsnNode insn = method.instructions.getFirst();
@@ -369,54 +370,11 @@ public class ForgeCompatTransformer {
     }
     
     // ================================================================
-    // REGISTRY FACTORY PATTERN
-    // DeferredRegister.create(ForgeRegistries.BLOCKS, modid)
-    //   → DeferredRegister.createBlocks(modid)
-    //
-    // Bytecode pattern:
-    //   GETSTATIC ForgeRegistries.BLOCKS
-    //   LDC "modid"
-    //   INVOKESTATIC DeferredRegister.create(IForgeRegistry, String)DeferredRegister
-    //
-    // Rewrite to:
-    //   LDC "modid"
-    //   INVOKESTATIC DeferredRegister.createBlocks(String)DeferredRegister$Blocks
+    // NOTE: Registry factory pattern (DeferredRegister.create) is IDENTICAL
+    // between Forge 1.19.2 and 1.20.1. No transformation needed.
+    // The only registry-related translation is Properties.of(Material)
+    // which is handled by handleMaterialPattern().
     // ================================================================
-    
-    private static boolean handleRegistryFactoryPattern(MethodNode method) {
-        boolean modified = false;
-        AbstractInsnNode insn = method.instructions.getFirst();
-        
-        while (insn != null) {
-            AbstractInsnNode next = insn.getNext();
-            
-            if (insn.getOpcode() == Opcodes.GETSTATIC) {
-                FieldInsnNode fin = (FieldInsnNode) insn;
-                if (fin.owner.equals(FORGE_REGISTRIES_INTERNAL)) {
-                    RegistryFactoryRemap remap = TranslationRules.REGISTRY_FACTORY_REMAPS.get(fin.name);
-                    if (remap != null && next != null && next.getOpcode() == Opcodes.LDC) {
-                        AbstractInsnNode afterLdc = next.getNext();
-                        if (afterLdc != null && afterLdc.getOpcode() == Opcodes.INVOKESTATIC) {
-                            MethodInsnNode min = (MethodInsnNode) afterLdc;
-                            if (min.owner.equals(DEFERRED_REGISTER_INTERNAL) && min.name.equals("create")) {
-                                // Found the pattern! Rewrite it.
-                                // Remove the GETSTATIC ForgeRegistries.X
-                                method.instructions.remove(insn);
-                                // Change the INVOKESTATIC to the new factory method
-                                min.name = remap.newFactoryMethod();
-                                min.desc = "(Ljava/lang/String;)" + remap.newReturnType();
-                                modified = true;
-                            }
-                        }
-                    }
-                }
-            }
-            
-            insn = next;
-        }
-        
-        return modified;
-    }
     
     // ================================================================
     // GETFIELD → INVOKEVIRTUAL (field became a method)

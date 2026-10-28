@@ -2,8 +2,7 @@
 // Rewrites 1.19.2 Forge mod bytecode directly to 1.20.1.
 // No shim classes. No wrappers. Just translation.
 
-var ASMAPI = Java.type('net.minecraftforge.coremod.api.ASMAPI');
-var Transformer = Java.type('net.minecraftforge.compat.transformer.ForgeCompatTransformer');
+var Transformer = Java.type('net.devmaster.forgecompat.transformer.ForgeCompatTransformer');
 
 function initializeCoreMod() {
     return {

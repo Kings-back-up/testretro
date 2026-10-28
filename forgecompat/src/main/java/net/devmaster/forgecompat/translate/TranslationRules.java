@@ -1,4 +1,4 @@
-package net.minecraftforge.compat.translate;
+package net.devmaster.forgecompat.translate;
 
 import java.util.HashMap;
 import java.util.Map;

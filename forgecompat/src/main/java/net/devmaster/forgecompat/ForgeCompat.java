@@ -1,4 +1,4 @@
-package net.minecraftforge.compat;
+package net.devmaster.forgecompat;
 
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -11,9 +11,8 @@ import org.slf4j.LoggerFactory;
  * ForgeCompat - A compatibility layer for running 1.19.2 Forge mods on 1.20.1.
  * 
  * This mod provides:
- * 1. Shim classes that re-implement the old 1.19.2 API surface
- * 2. A CoreMod transformer that rewrites target mod bytecode at load time
- * 3. Runtime adapters for behavioral differences
+ * 1. A CoreMod transformer that rewrites target mod bytecode at load time
+ * 2. Runtime adapters for behavioral differences
  * 
  * Usage: Place this mod in the mods folder alongside a 1.19.2 target mod.
  * The transformer will automatically detect and patch supported mods.
@@ -37,6 +36,6 @@ public class ForgeCompat {
     }
     
     private void onCommonSetup(final net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent event) {
-        LOGGER.info("ForgeCompat common setup - shim layer active");
+        LOGGER.info("ForgeCompat common setup - translation layer active");
     }
 }

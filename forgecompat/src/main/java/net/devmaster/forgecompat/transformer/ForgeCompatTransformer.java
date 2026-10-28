@@ -1,10 +1,10 @@
-package net.minecraftforge.compat.transformer;
+package net.devmaster.forgecompat.transformer;
 
-import net.minecraftforge.compat.translate.TranslationRules;
-import net.minecraftforge.compat.translate.TranslationRules.MethodRename;
-import net.minecraftforge.compat.translate.TranslationRules.FieldToMethod;
-import net.minecraftforge.compat.translate.TranslationRules.CapabilityRemap;
-import net.minecraftforge.compat.translate.TranslationRules.MaterialFlags;
+import net.devmaster.forgecompat.translate.TranslationRules;
+import net.devmaster.forgecompat.translate.TranslationRules.MethodRename;
+import net.devmaster.forgecompat.translate.TranslationRules.FieldToMethod;
+import net.devmaster.forgecompat.translate.TranslationRules.CapabilityRemap;
+import net.devmaster.forgecompat.translate.TranslationRules.MaterialFlags;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -23,7 +23,6 @@ import java.util.*;
  * - Class renames: MaterialColor → MapColor (everywhere in descriptors)
  * - Capability remaps: GETSTATIC CapabilityItemHandler.X → GETSTATIC ForgeCapabilities.Y
  * - Event renames: type references rewritten
- * - Registry factory: DeferredRegister.create(ForgeRegistries.BLOCKS, id) → DeferredRegister.createBlocks(id)
  * 
  * Only falls back to CompatHelpers for cases where the Material is in a variable
  * (not a compile-time constant) and can't be inlined.
@@ -31,8 +30,8 @@ import java.util.*;
 public class ForgeCompatTransformer {
     
     private static final String MATERIAL_INTERNAL = "net/minecraft/world/level/material/Material";
-    private static final String MATERIAL_DATA_INTERNAL = "net/minecraftforge/compat/translate/MaterialData";
-    private static final String COMPAT_HELPERS_INTERNAL = "net/minecraftforge/compat/translate/CompatHelpers";
+    private static final String MATERIAL_DATA_INTERNAL = "net/devmaster/forgecompat/translate/MaterialData";
+    private static final String COMPAT_HELPERS_INTERNAL = "net/devmaster/forgecompat/translate/CompatHelpers";
     private static final String PROPERTIES_INTERNAL = "net/minecraft/world/level/block/state/BlockBehaviour$Properties";
     
     /**
@@ -517,7 +516,7 @@ public class ForgeCompatTransformer {
     
     public static boolean shouldTransform(String className) {
         // Don't transform ourselves
-        if (className.startsWith("net/minecraftforge/compat/")) return false;
+        if (className.startsWith("net/devmaster/forgecompat/")) return false;
         // Don't transform vanilla/forge
         if (className.startsWith("net/minecraft/")) return false;
         if (className.startsWith("net/minecraftforge/")) return false;

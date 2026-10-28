@@ -4,7 +4,17 @@ Translates 1.19.2 Forge mod bytecode directly to 1.20.1 at class load time.
 
 **No shim classes. No fake API. No wrappers.** The transformer reads the old bytecode and rewrites it to call the new 1.20.1 APIs directly.
 
-## How it works
+## ⚠️ IMPORTANT: Patching 1.19.2 Mods
+
+Before using a 1.19.2 mod with ForgeCompat, you **must** patch its metadata to accept Minecraft 1.20.1. See [USING_WITH_1.19.2_MODS.md](USING_WITH_1.19.2_MODS.md) for detailed instructions.
+
+**Quick steps:**
+1. Place `patch_mods.py` in your Minecraft root folder
+2. Run `python patch_mods.py mods` (or use `patch_mods.bat` on Windows)
+3. Place your 1.19.2 mod in the `mods/` folder
+4. Launch Minecraft with ForgeCompat
+
+## How It Works
 
 ```
 1.19.2 mod bytecode          ForgeCompatTransformer           1.20.1 runtime
@@ -32,7 +42,7 @@ No `Material` class exists at runtime. The flags are inlined directly.
 ## Architecture
 
 ```
-forgecompat/src/main/java/net/minecraftforge/compat/
+forgecompat/src/main/java/net/devmaster/forgecompat/
 ├── ForgeCompat.java              # @Mod entry point
 ├── RuntimeAdapter.java           # Minimal runtime hooks (logging, etc.)
 ├── translate/
@@ -52,14 +62,12 @@ forgecompat/src/main/java/net/minecraftforge/compat/
   - `MATERIAL_FLAGS` — What flags each Material constant maps to
   - `CAPABILITY_REMAPS` — CapabilityItemHandler.X → ForgeCapabilities.X
   - `EVENT_RENAMES` — LivingSetAttackTargetEvent → LivingChangeTargetEvent
-  - `REGISTRY_FACTORY_REMAPS` — DeferredRegister.create(ForgeRegistries.BLOCKS, id) → createBlocks(id)
 
 - **ForgeCompatTransformer.java** — Reads TranslationRules and applies them:
   - Pattern-matches `Properties.of(Material.X)` and inlines the flags
   - Rewrites `GETFIELD entity.level` to `INVOKEVIRTUAL entity.level()`
   - Renames method calls per METHOD_RENAMES
   - Remaps capability field access
-  - Handles the DeferredRegister factory pattern
   - Falls back to `CompatHelpers.of(material)` only when Material is in a variable
 
 - **MaterialData.java** — NOT a re-implementation of Material. Just a data bag with the flag values. Only used at runtime when a mod stores a Material in a variable (the transformer can't inline flags it doesn't know at transform time).
@@ -78,8 +86,8 @@ cd forgecompat
 ## Testing with Homespun
 
 1. Build ForgeCompat
-2. Get a 1.19.2 build of Homespun (before its NeoForge port)
-3. Put both JARs in a 1.20.1 Forge mods folder
+2. **Run the patcher** on your 1.19.2 Homespun JAR: `python patch_mods.py mods`
+3. Place both JARs in a 1.20.1 Forge mods folder
 4. Launch and watch the log for `[ForgeCompat]` messages
 5. Check that blocks, items, creative tab, fluids, and recipes work
 

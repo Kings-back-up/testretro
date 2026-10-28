@@ -1,7 +1,8 @@
-package net.minecraftforge.compat.translate;
+package net.devmaster.forgecompat.translate;
 
 import net.minecraft.world.level.block.state.BlockBehaviour;
-import net.minecraftforge.compat.translate.TranslationRules.MaterialFlags;
+import net.minecraft.world.level.material.PushReaction;
+import net.devmaster.forgecompat.translate.TranslationRules.MaterialFlags;
 
 /**
  * Tiny static helpers for translation patterns that can't be expressed as
@@ -10,7 +11,7 @@ import net.minecraftforge.compat.translate.TranslationRules.MaterialFlags;
  * IMPORTANT: This is NOT a re-implementation of the old API.
  * These are translation utilities that the transformer calls when it can't
  * inline the translation directly (e.g., when a Material is in a variable
- * rather than a compile-time constant).
+ * rather than a constant).
  * 
  * Most translations happen directly in bytecode. These helpers are the
  * exception for complex cases.
@@ -18,7 +19,7 @@ import net.minecraftforge.compat.translate.TranslationRules.MaterialFlags;
 public class CompatHelpers {
     
     /**
-     * Translate a Material to BlockBehaviour.Properties.
+     * Translate a MaterialData to BlockBehaviour.Properties.
      * 
      * Used when the transformer sees:
      *   Material m = ...; // variable, not constant
@@ -49,10 +50,10 @@ public class CompatHelpers {
             props = props.requiresCorrectToolForDrops();
         }
         props = props.pushReaction(switch (material.pushReaction) {
-            case MaterialFlags.PUSH_DESTROY -> net.minecraft.world.level.material.PushReaction.DESTROY;
-            case MaterialFlags.PUSH_BLOCK -> net.minecraft.world.level.material.PushReaction.BLOCK;
-            case MaterialFlags.PUSH_ONLY -> net.minecraft.world.level.material.PushReaction.PUSH_ONLY;
-            default -> net.minecraft.world.level.material.PushReaction.NORMAL;
+            case MaterialFlags.PUSH_DESTROY -> PushReaction.DESTROY;
+            case MaterialFlags.PUSH_BLOCK -> PushReaction.BLOCK;
+            case MaterialFlags.PUSH_ONLY -> PushReaction.PUSH_ONLY;
+            default -> PushReaction.NORMAL;
         });
         
         return props;
@@ -94,12 +95,4 @@ public class CompatHelpers {
     public static boolean isReplaceable(MaterialData material) {
         return material.replaceable;
     }
-    
-    /**
-     * Translate a 1.19.2 creative tab builder to 1.20.1 format.
-     * The creative tab API changed significantly.
-     */
-    // public static CreativeModeTab.Builder creativeTabBuilder() {
-    //     return CreativeModeTab.builder();
-    // }
 }

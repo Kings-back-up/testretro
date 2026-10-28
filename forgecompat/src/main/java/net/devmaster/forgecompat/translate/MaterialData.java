@@ -1,4 +1,4 @@
-package net.minecraftforge.compat.translate;
+package net.devmaster.forgecompat.translate;
 
 /**
  * Minimal data holder for Material constants.

@@ -1,4 +1,4 @@
-package net.minecraftforge.compat;
+package net.devmaster.forgecompat;
 
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;

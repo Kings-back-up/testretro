@@ -1,99 +1,122 @@
-# ForgeCompat - Minecraft Forge Compatibility Layer
+# ForgeCompat — Pure Bytecode Translator
 
-A compatibility layer that enables Minecraft Forge 1.19.2 mods to run on Minecraft Forge 1.20.1.
+Translates 1.19.2 Forge mod bytecode directly to 1.20.1 at class load time.
 
-## How It Works
+**No shim classes. No fake API. No wrappers.** The transformer reads the old bytecode and rewrites it to call the new 1.20.1 APIs directly.
 
-ForgeCompat uses a three-layer approach:
-
-1. **API Shim Layer** - Java classes that re-implement the old 1.19.2 API surface
-2. **Bytecode Transformer** - A CoreMod that rewrites target mod bytecode at load time
-3. **Runtime Adapter** - Event bus hooks for behavioral differences
-
-## What Gets Transformed
-
-| 1.19.2 API | 1.20.1 API | Strategy |
-|---|---|---|
-| `Material.WOOD` | `Properties.of().ignitedByLava()` | Shim + Transform |
-| `RegistryObject<T>` | `DeferredHolder<R,T>` | Shim wrapper |
-| `entity.level` (field) | `entity.level()` (method) | ASM Transform |
-| `entity.isOnGround` (field) | `entity.onGround()` (method) | ASM Transform |
-| `ServerPlayer.getLevel()` | `ServerPlayer.serverLevel()` | Method remap |
-| `LivingSetAttackTargetEvent` | `LivingChangeTargetEvent` | Shim subclass |
-| `CapabilityItemHandler.*` | `ForgeCapabilities.ITEM_HANDLER` | Field remap |
-| `Properties.of(Material)` | `MaterialCompat.propertiesOf(Material)` | Static helper |
-| `SimpleChannel.registerMessage()` | `messageBuilder().consumerMainThread()` | Shim wrapper |
-
-## Project Structure
+## How it works
 
 ```
-forgecompat/
-├── build.gradle                    # ForgeGradle build config
-├── gradle.properties               # Version properties
-├── settings.gradle                 # Gradle settings
-└── src/main/
-    ├── java/net/minecraftforge/compat/
-    │   ├── ForgeCompat.java        # Main @Mod class
-    │   ├── RuntimeAdapter.java     # Event bus runtime hooks
-    │   ├── shim/
-    │   │   ├── material/
-    │   │   │   ├── Material.java           # Old Material class
-    │   │   │   ├── MaterialColor.java      # MaterialColor → MapColor
-    │   │   │   └── MaterialCompat.java     # Static helper for Properties.of(Material)
-    │   │   ├── registries/
-    │   │   │   ├── RegistryObject.java     # Wraps DeferredHolder
-    │   │   │   ├── ShimDeferredRegister.java # Wraps new DeferredRegister
-    │   │   │   └── ShimForgeRegistry.java  # Wraps ForgeRegistries
-    │   │   ├── entity/
-    │   │   │   └── EntityCompat.java       # Field → method helpers
-    │   │   ├── events/
-    │   │   │   └── LivingSetAttackTargetEvent.java
-    │   │   ├── network/
-    │   │   │   └── ShimSimpleChannel.java  # Old network API
-    │   │   └── capabilities/
-    │   │       └── CapabilityCompat.java   # Old capability constants
-    │   └── transformer/
-    │       └── ForgeCompatTransformer.java # ASM bytecode transformer
-    └── resources/
-        ├── META-INF/
-        │   └── mods.toml           # Mod metadata + CoreMod declaration
-        └── forgecompat_coremod.js  # CoreMod JS bridge to Java transformer
+1.19.2 mod bytecode          ForgeCompatTransformer           1.20.1 runtime
+─────────────────            ────────────────────             ──────────────
+GETSTATIC Material.WOOD  →   inlines property flags       →   Properties.of().ignitedByLava()
+GETFIELD entity.level    →   rewrites to method call      →   INVOKEVIRTUAL entity.level()
+INVOKEVIRTUAL getLevel() →   renames method               →   INVOKEVIRTUAL serverLevel()
+GETSTATIC CapabilityItemHandler.X →  remaps owner+field   →   GETSTATIC ForgeCapabilities.X
 ```
+
+The transformer pattern-matches old bytecode sequences and replaces them with new ones. For example:
+
+```
+// What the 1.19.2 mod's bytecode looks like:
+GETSTATIC net/minecraft/world/level/material/Material.WOOD
+INVOKESTATIC Properties.of(Material)Properties
+
+// What the transformer rewrites it to:
+INVOKESTATIC Properties.of()Properties
+INVOKEVIRTUAL Properties.ignitedByLava()Properties
+```
+
+No `Material` class exists at runtime. The flags are inlined directly.
+
+## Architecture
+
+```
+forgecompat/src/main/java/net/minecraftforge/compat/
+├── ForgeCompat.java              # @Mod entry point
+├── RuntimeAdapter.java           # Minimal runtime hooks (logging, etc.)
+├── translate/
+│   ├── TranslationRules.java     # ALL translation rules (the data)
+│   ├── MaterialData.java         # Minimal data holder for variable Materials
+│   └── CompatHelpers.java        # Tiny helpers for cases that can't be inlined
+└── transformer/
+    └── ForgeCompatTransformer.java  # The actual bytecode rewriter
+```
+
+### What's in each file:
+
+- **TranslationRules.java** — The single source of truth. Contains:
+  - `CLASS_RENAMES` — MaterialColor → MapColor, etc.
+  - `METHOD_RENAMES` — getLevel() → serverLevel(), etc.
+  - `FIELD_TO_METHODS` — entity.level → entity.level()
+  - `MATERIAL_FLAGS` — What flags each Material constant maps to
+  - `CAPABILITY_REMAPS` — CapabilityItemHandler.X → ForgeCapabilities.X
+  - `EVENT_RENAMES` — LivingSetAttackTargetEvent → LivingChangeTargetEvent
+  - `REGISTRY_FACTORY_REMAPS` — DeferredRegister.create(ForgeRegistries.BLOCKS, id) → createBlocks(id)
+
+- **ForgeCompatTransformer.java** — Reads TranslationRules and applies them:
+  - Pattern-matches `Properties.of(Material.X)` and inlines the flags
+  - Rewrites `GETFIELD entity.level` to `INVOKEVIRTUAL entity.level()`
+  - Renames method calls per METHOD_RENAMES
+  - Remaps capability field access
+  - Handles the DeferredRegister factory pattern
+  - Falls back to `CompatHelpers.of(material)` only when Material is in a variable
+
+- **MaterialData.java** — NOT a re-implementation of Material. Just a data bag with the flag values. Only used at runtime when a mod stores a Material in a variable (the transformer can't inline flags it doesn't know at transform time).
+
+- **CompatHelpers.java** — Tiny static methods for the rare cases where pure bytecode rewriting isn't practical. Most translations happen inline; these are the exception.
 
 ## Building
 
 ```bash
-# Requires Java 17+
+# Needs a Forge 1.20.1 MDK environment
+cd forgecompat
 ./gradlew build
+# Output: build/libs/forgecompat-0.1.0.jar
 ```
-
-The output JAR goes in `build/libs/forgecompat-0.1.0.jar`.
-
-## Usage
-
-1. Build ForgeCompat
-2. Place `forgecompat-0.1.0.jar` in your `mods/` folder
-3. Place your 1.19.2 mod JAR in the same `mods/` folder
-4. Run Minecraft 1.20.1 with Forge 47.x
-
-The CoreMod transformer will automatically detect and patch the target mod's classes.
 
 ## Testing with Homespun
 
-The first test target is [Homespun](https://github.com/PrincessStrelka/Homespun) by PrincessStrelka.
+1. Build ForgeCompat
+2. Get a 1.19.2 build of Homespun (before its NeoForge port)
+3. Put both JARs in a 1.20.1 Forge mods folder
+4. Launch and watch the log for `[ForgeCompat]` messages
+5. Check that blocks, items, creative tab, fluids, and recipes work
 
-To test:
-1. Build the 1.19.2 version of Homespun (or use its source)
-2. Place both JARs in a 1.20.1 Forge mods folder
-3. Check the log for `[ForgeCompat] Transformed class` messages
-4. Verify blocks, items, fluids, and recipes work
+## Adding new translations
 
-## Limitations
+Just add entries to `TranslationRules.java`. For example, to add a new method rename:
 
-- Cannot shim direct access to removed vanilla internals
-- Heavily mixin-dependent mods may need additional work
-- World generation changes may not be fully compatible
-- Some rendering changes require manual intervention
+```java
+new MethodRename(
+    "net/minecraft/world/some/Class",
+    "oldMethodName", "(Lsome/param;)ReturnType",
+    "newMethodName", "(Lsome/param;)ReturnType"
+),
+```
+
+For a new field→method conversion:
+
+```java
+new FieldToMethod(
+    "net/minecraft/world/entity/Entity",
+    "fieldName", "Lfield/Type;",
+    "methodName", "()Lfield/Type;"
+),
+```
+
+For a new Material constant:
+
+```java
+MATERIAL_FLAGS.put("NEW_MATERIAL", new MaterialFlags(
+    true,   // ignitedByLava
+    false,  // liquid
+    false,  // noCollission
+    false,  // replaceable
+    false,  // requiresCorrectTool
+    MaterialFlags.PUSH_NORMAL  // pushReaction
+));
+```
 
 ## License
 

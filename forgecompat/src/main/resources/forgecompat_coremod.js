@@ -1,49 +1,34 @@
-// ForgeCompat CoreMod Transformer
-// This JavaScript file is loaded by Forge's CoreMod system and bridges
-// to our Java ForgeCompatTransformer class for actual bytecode manipulation.
-//
-// Location: src/main/resources/forgecompat_coremod.js
-// Referenced in: META-INF/mods.toml
+// ForgeCompat CoreMod - Pure bytecode translator
+// Rewrites 1.19.2 Forge mod bytecode directly to 1.20.1.
+// No shim classes. No wrappers. Just translation.
 
 var ASMAPI = Java.type('net.minecraftforge.coremod.api.ASMAPI');
-var ForgeCompatTransformer = Java.type('net.minecraftforge.compat.transformer.ForgeCompatTransformer');
-var Opcodes = Java.type('org.objectweb.asm.Opcodes');
+var Transformer = Java.type('net.minecraftforge.compat.transformer.ForgeCompatTransformer');
 
 function initializeCoreMod() {
     return {
-        'forgecompat_transformer': {
+        'forgecompat_translator': {
             'target': {
                 'type': 'CLASS',
-                'names': getTargetClasses
+                'names': function(classNames) {
+                    var targets = [];
+                    for (var i = 0; i < classNames.length; i++) {
+                        if (Transformer.shouldTransform(classNames[i])) {
+                            targets.push(classNames[i]);
+                        }
+                    }
+                    return targets;
+                }
             },
             'transformer': function(classNode) {
                 try {
-                    return ForgeCompatTransformer.transform(
-                        classNode.name, 
-                        classNode
-                    );
+                    return Transformer.transform(classNode.name, classNode);
                 } catch (e) {
-                    // Log but don't crash - let the game continue
+                    // Don't crash the game — log and pass through
                     print('[ForgeCompat] Error transforming ' + classNode.name + ': ' + e);
                     return classNode;
                 }
             }
         }
     };
-}
-
-/**
- * Determine which classes should be transformed.
- * We target classes that look like they're from mods (not vanilla/forge).
- * The ForgeCompatTransformer.shouldTransform() method does the final check.
- */
-function getTargetClasses(classNames) {
-    var targets = [];
-    for (var i = 0; i < classNames.length; i++) {
-        var name = classNames[i];
-        if (ForgeCompatTransformer.shouldTransform(name)) {
-            targets.push(name);
-        }
-    }
-    return targets;
 }

@@ -1,332 +1,232 @@
-import { useState } from 'react'
-
 function App() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'structure' | 'transformer' | 'usage'>('overview')
-
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
         {/* Header */}
-        <div className="mb-8">
+        <div className="border-b border-gray-800 pb-6">
           <div className="flex items-center gap-3 mb-2">
             <span className="text-3xl">⚒️</span>
             <h1 className="text-3xl font-bold text-white">ForgeCompat</h1>
-            <span className="px-2 py-0.5 bg-orange-500/20 border border-orange-500/30 rounded text-orange-400 text-xs font-mono">v0.1.0</span>
+            <span className="px-2 py-0.5 bg-orange-500/20 border border-orange-500/30 rounded text-orange-400 text-xs font-mono">pure translator</span>
           </div>
           <p className="text-gray-400">
-            A Forge CoreMod compatibility layer that enables 1.19.2 mods to run on 1.20.1 via bytecode transformation and API shims.
+            Translates 1.19.2 Forge mod bytecode directly to 1.20.1 at class load time.
+            No shim classes. No fake API. No wrappers.
           </p>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6 flex-wrap">
-          {(['overview', 'structure', 'transformer', 'usage'] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                activeTab === tab
-                  ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                  : 'bg-gray-800 text-gray-400 border border-gray-700 hover:text-gray-200'
-              }`}
-            >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
+        {/* The core idea */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <h2 className="text-xl font-bold text-white mb-4">How it works</h2>
+          <p className="text-sm text-gray-400 mb-4">
+            The transformer pattern-matches old bytecode sequences and replaces them with new ones.
+            No intermediate classes. The old API calls become new API calls directly.
+          </p>
+          <div className="bg-gray-950 rounded-lg p-4 border border-gray-700 font-mono text-xs overflow-x-auto">
+            <pre className="text-gray-300">{`// 1.19.2 mod bytecode:
+GETSTATIC Material.WOOD
+INVOKESTATIC Properties.of(Material)Properties
+
+// Transformer rewrites to:
+INVOKESTATIC Properties.of()Properties
+INVOKEVIRTUAL Properties.ignitedByLava()Properties
+
+// No Material class exists at runtime. Flags are inlined.`}</pre>
+          </div>
         </div>
 
-        {/* Content */}
-        {activeTab === 'overview' && (
-          <div className="space-y-6">
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h2 className="text-xl font-bold text-white mb-4">How It Works</h2>
-              <div className="space-y-4 text-sm text-gray-300">
-                <p>ForgeCompat intercepts the target mod's classes as they're loaded by the JVM and rewrites them to use the 1.20.1 API:</p>
-                <div className="bg-gray-950 rounded-lg p-4 border border-gray-700 font-mono text-xs overflow-x-auto">
-                  <pre className="text-gray-300">{`1. Target mod JAR (compiled for 1.19.2) is loaded
-2. Forge's CoreMod system invokes forgecompat_coremod.js
-3. JS bridge calls Java ForgeCompatTransformer.transform()
-4. Transformer rewrites bytecode:
-   - Class refs: Material → shim.Material
-   - Fields: entity.level → entity.level()
-   - Methods: getLevel() → serverLevel()
-   - Events: LivingSetAttackTarget → shim subclass
-5. Rewritten classes run on 1.20.1 Forge`}</pre>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h2 className="text-xl font-bold text-white mb-4">What Gets Transformed</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-700">
-                      <th className="text-left py-2 px-3 text-gray-400">1.19.2 API</th>
-                      <th className="text-left py-2 px-3 text-gray-400">1.20.1 API</th>
-                      <th className="text-left py-2 px-3 text-gray-400">Strategy</th>
-                    </tr>
-                  </thead>
-                  <tbody className="font-mono text-xs">
-                    {[
-                      ['Properties.of(Material)', 'Properties.of().ignitedByLava()', 'Shim + Transform'],
-                      ['RegistryObject<T>', 'DeferredHolder<R,T>', 'Shim wrapper'],
-                      ['entity.level (field)', 'entity.level() (method)', 'ASM GETFIELD→INVOKEVIRTUAL'],
-                      ['entity.isOnGround (field)', 'entity.onGround() (method)', 'ASM GETFIELD→INVOKEVIRTUAL'],
-                      ['ServerPlayer.getLevel()', 'ServerPlayer.serverLevel()', 'Method name remap'],
-                      ['LivingSetAttackTargetEvent', 'LivingChangeTargetEvent', 'Shim subclass'],
-                      ['CapabilityItemHandler.*', 'ForgeCapabilities.*', 'GETSTATIC owner remap'],
-                      ['SimpleChannel.registerMessage()', 'messageBuilder().consumerMainThread()', 'Shim wrapper'],
-                    ].map(([old, neo, strat], i) => (
-                      <tr key={i} className="border-b border-gray-800/50">
-                        <td className="py-2 px-3 text-red-300">{old}</td>
-                        <td className="py-2 px-3 text-green-300">{neo}</td>
-                        <td className="py-2 px-3 text-orange-400">{strat}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h2 className="text-xl font-bold text-white mb-4">Key Files</h2>
-              <div className="space-y-2 text-sm">
-                <FileItem path="forgecompat/src/main/java/.../ForgeCompat.java" desc="Main @Mod class" />
-                <FileItem path="forgecompat/src/main/java/.../transformer/ForgeCompatTransformer.java" desc="ASM bytecode transformer (the brain)" />
-                <FileItem path="forgecompat/src/main/java/.../shim/material/Material.java" desc="Re-implements the removed Material class" />
-                <FileItem path="forgecompat/src/main/java/.../shim/registries/RegistryObject.java" desc="Wraps DeferredHolder as old RegistryObject" />
-                <FileItem path="forgecompat/src/main/resources/forgecompat_coremod.js" desc="CoreMod JS bridge to Java transformer" />
-                <FileItem path="forgecompat/src/main/resources/META-INF/mods.toml" desc="Mod metadata + CoreMod declaration" />
-              </div>
-            </div>
+        {/* Translation examples */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <h2 className="text-xl font-bold text-white mb-4">Translation examples</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-700">
+                  <th className="text-left py-2 px-3 text-gray-400">1.19.2 bytecode</th>
+                  <th className="text-left py-2 px-3 text-gray-400">→</th>
+                  <th className="text-left py-2 px-3 text-gray-400">1.20.1 bytecode</th>
+                  <th className="text-left py-2 px-3 text-gray-400">Strategy</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono text-xs">
+                {[
+                  ['GETSTATIC Material.WOOD\nINVOKESTATIC Properties.of(Material)', 'Properties.of().ignitedByLava()', 'inline flags'],
+                  ['GETFIELD entity.level', 'INVOKEVIRTUAL entity.level()', 'field→method'],
+                  ['INVOKEVIRTUAL ServerPlayer.getLevel()', 'INVOKEVIRTUAL serverLevel()', 'rename'],
+                  ['GETSTATIC CapabilityItemHandler.X', 'GETSTATIC ForgeCapabilities.X', 'remap owner+field'],
+                  ['INVOKESTATIC DeferredRegister.create(ForgeRegistries.BLOCKS, id)', 'INVOKESTATIC DeferredRegister.createBlocks(id)', 'pattern rewrite'],
+                  ['Material.isFlammable()', 'ICONST_1 (constant-folded)', 'inline constant'],
+                  ['GETSTATIC MaterialColor.WOOD', 'GETSTATIC MapColor.WOOD', 'class rename'],
+                ].map(([old, neo, strat], i) => (
+                  <tr key={i} className="border-b border-gray-800/50 align-top">
+                    <td className="py-3 px-3 text-red-300 whitespace-pre">{old}</td>
+                    <td className="py-3 px-3 text-gray-500">→</td>
+                    <td className="py-3 px-3 text-green-300">{neo}</td>
+                    <td className="py-3 px-3 text-orange-400">{strat}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
+        </div>
 
-        {activeTab === 'structure' && (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <h2 className="text-xl font-bold text-white mb-4">Project Structure</h2>
-            <div className="bg-gray-950 rounded-lg p-4 border border-gray-700 font-mono text-xs overflow-x-auto">
-              <pre className="text-gray-300">{`forgecompat/
-├── build.gradle                          # ForgeGradle 6.x for 1.20.1
-├── gradle.properties                     # MC 1.20.1, Forge 47.2.0
-├── settings.gradle
-├── README.md
-└── src/main/
-    ├── java/net/minecraftforge/compat/
-    │   ├── ForgeCompat.java              # @Mod entry point
-    │   ├── RuntimeAdapter.java           # Event bus hooks
-    │   │
-    │   ├── shim/
-    │   │   ├── material/
-    │   │   │   ├── Material.java         # All 1.19.2 material constants
-    │   │   │   ├── MaterialColor.java    # MaterialColor → MapColor alias
-    │   │   │   └── MaterialCompat.java   # propertiesOf(Material) helper
-    │   │   │
-    │   │   ├── registries/
-    │   │   │   ├── RegistryObject.java   # Wraps DeferredHolder
-    │   │   │   ├── ShimDeferredRegister.java  # create(ForgeRegistries.X, modid)
-    │   │   │   └── ShimForgeRegistry.java     # BLOCKS/ITEMS/FLUIDS markers
-    │   │   │
-    │   │   ├── entity/
-    │   │   │   └── EntityCompat.java     # getLevel/isOnGround helpers
-    │   │   │
-    │   │   ├── events/
-    │   │   │   └── LivingSetAttackTargetEvent.java  # Extends LivingChangeTargetEvent
-    │   │   │
-    │   │   ├── network/
-    │   │   │   └── ShimSimpleChannel.java  # registerMessage() wrapper
-    │   │   │
-    │   │   └── capabilities/
-    │   │       └── CapabilityCompat.java   # ITEM_HANDLER_CAPABILITY etc.
-    │   │
-    │   └── transformer/
-    │       └── ForgeCompatTransformer.java # THE CORE: ASM class rewriting
-    │
-    └── resources/
-        ├── META-INF/
-        │   └── mods.toml                 # CoreMod declaration
-        └── forgecompat_coremod.js        # JS → Java bridge`}</pre>
-            </div>
+        {/* Project structure */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <h2 className="text-xl font-bold text-white mb-4">Project structure</h2>
+          <div className="bg-gray-950 rounded-lg p-4 border border-gray-700 font-mono text-xs overflow-x-auto">
+            <pre className="text-gray-300">{`forgecompat/src/main/java/net/minecraftforge/compat/
+├── ForgeCompat.java              # @Mod entry point
+├── RuntimeAdapter.java           # Minimal runtime hooks
+├── translate/
+│   ├── TranslationRules.java     # ALL translation rules (the data)
+│   ├── MaterialData.java         # Minimal data bag for variable Materials
+│   └── CompatHelpers.java        # Tiny helpers for non-inlineable cases
+└── transformer/
+    └── ForgeCompatTransformer.java  # The bytecode rewriter
+
+forgecompat/src/main/resources/
+├── META-INF/mods.toml            # CoreMod declaration
+└── forgecompat_coremod.js        # JS bridge to Java transformer`}</pre>
           </div>
-        )}
+        </div>
 
-        {activeTab === 'transformer' && (
-          <div className="space-y-6">
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h2 className="text-xl font-bold text-white mb-4">ForgeCompatTransformer.java</h2>
-              <p className="text-sm text-gray-400 mb-4">
-                This is the core of the system. It uses ASM to rewrite the target mod's bytecode as classes are loaded.
-              </p>
-              <div className="bg-gray-950 rounded-lg p-4 border border-gray-700 font-mono text-xs overflow-x-auto">
-                <pre className="text-gray-300">{`// The transformer runs 3 phases on each target class:
-
-Phase 1: Class Hierarchy Remapping
-  ├── superclass: old class → shim class
-  └── interfaces: old interfaces → shim interfaces
-
-Phase 2: Method Transformation (for each method)
-  ├── Remap method descriptor types
-  ├── Transform GETFIELD → INVOKEVIRTUAL (entity.level → entity.level())
-  ├── Transform INVOKESTATIC/INVOKEVIRTUAL (method renames)
-  ├── Transform Properties.of(Material) → MaterialCompat.propertiesOf(Material)
-  ├── Remap capability GETSTATIC owners
-  └── Remap local variable descriptors
-
-Phase 3: Field Descriptor Remapping
-  └── Replace old class refs in field type descriptors
-
-// Example transformation for Homespun's ModBlocks.java:
-// BEFORE: BlockBehaviour.Properties.of(Material.WOOD)
-//   ALOAD Material.WOOD (GETSTATIC)
-//   INVOKESTATIC Properties.of(Material)Properties
-//
-// AFTER:
-//   ALOAD Material.WOOD (GETSTATIC → now loads shim.Material.WOOD)
-//   INVOKESTATIC MaterialCompat.propertiesOf(Material)Properties`}</pre>
-              </div>
-            </div>
-
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h2 className="text-xl font-bold text-white mb-4">Class Remap Table</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs font-mono">
-                  <thead>
-                    <tr className="border-b border-gray-700">
-                      <th className="text-left py-2 px-3 text-gray-400">Old (1.19.2)</th>
-                      <th className="text-left py-2 px-3 text-gray-400">New (shim/1.20.1)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-gray-300">
-                    {[
-                      ['net/minecraft/world/level/material/Material', 'net/minecraftforge/compat/shim/material/Material'],
-                      ['net/minecraft/world/level/material/MaterialColor', 'net/minecraftforge/compat/shim/material/MaterialColor'],
-                      ['net/minecraftforge/registries/RegistryObject', 'net/minecraftforge/compat/shim/registries/RegistryObject'],
-                      ['net/minecraftforge/registries/ForgeRegistries', 'net/minecraftforge/compat/shim/registries/ShimForgeRegistry'],
-                      ['net/minecraftforge/event/entity/living/LivingSetAttackTargetEvent', 'net/minecraftforge/compat/shim/events/LivingSetAttackTargetEvent'],
-                      ['net/minecraftforge/common/capabilities/CapabilityItemHandler', 'net/minecraftforge/compat/shim/capabilities/CapabilityCompat'],
-                    ].map(([old, neo], i) => (
-                      <tr key={i} className="border-b border-gray-800/50">
-                        <td className="py-2 px-3 text-red-300">{old}</td>
-                        <td className="py-2 px-3 text-green-300">{neo}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h2 className="text-xl font-bold text-white mb-4">Field → Method Transforms</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs font-mono">
-                  <thead>
-                    <tr className="border-b border-gray-700">
-                      <th className="text-left py-2 px-3 text-gray-400">Owner</th>
-                      <th className="text-left py-2 px-3 text-gray-400">Old (GETFIELD)</th>
-                      <th className="text-left py-2 px-3 text-gray-400">New (INVOKEVIRTUAL)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-gray-300">
-                    <tr className="border-b border-gray-800/50">
-                      <td className="py-2 px-3">Entity</td>
-                      <td className="py-2 px-3 text-red-300">level : Level</td>
-                      <td className="py-2 px-3 text-green-300">level() : Level</td>
-                    </tr>
-                    <tr className="border-b border-gray-800/50">
-                      <td className="py-2 px-3">Entity</td>
-                      <td className="py-2 px-3 text-red-300">isOnGround : boolean</td>
-                      <td className="py-2 px-3 text-green-300">onGround() : boolean</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'usage' && (
-          <div className="space-y-6">
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h2 className="text-xl font-bold text-white mb-4">Building the Mod</h2>
-              <div className="bg-gray-950 rounded-lg p-4 border border-gray-700 font-mono text-sm">
-                <pre className="text-gray-300">{`# Clone/copy the forgecompat/ directory
-cd forgecompat
-
-# Requires Java 17+
-./gradlew build
-
-# Output: build/libs/forgecompat-0.1.0.jar`}</pre>
-              </div>
-            </div>
-
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h2 className="text-xl font-bold text-white mb-4">Using with Homespun</h2>
-              <div className="space-y-3 text-sm text-gray-300">
-                <ol className="space-y-2 list-decimal list-inside">
-                  <li>Build the 1.19.2 version of Homespun (or use the source from the <code className="text-orange-400">master</code> branch before its NeoForge port)</li>
-                  <li>Place <code className="text-orange-400">forgecompat-0.1.0.jar</code> in your 1.20.1 Forge mods folder</li>
-                  <li>Place the Homespun 1.19.2 JAR in the same folder</li>
-                  <li>Launch Minecraft 1.20.1 with Forge 47.2.0</li>
-                  <li>Check the log for <code className="text-orange-400">[ForgeCompat] Transformed class strelka/homespun/...</code></li>
-                  <li>Verify blocks, items, creative tab, fluids, and recipes work</li>
-                </ol>
-              </div>
-            </div>
-
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h2 className="text-xl font-bold text-white mb-4">Debugging</h2>
-              <div className="bg-gray-950 rounded-lg p-4 border border-gray-700 font-mono text-xs overflow-x-auto">
-                <pre className="text-gray-300">{`# Enable debug logging in run/forge.cfg or via JVM args:
--Dforge.logging.console.level=debug
-
-# Common errors and fixes:
-# 1. NoSuchMethodError: Properties.of(Material)
-#    → Transformer didn't catch the class. Check shouldTransform() filter.
-#
-# 2. NoClassDefFoundError: Material
-#    → The shim Material class isn't on the classpath. Check build.gradle deps.
-#
-# 3. ClassCastException: RegistryObject → DeferredHolder
-#    → Transformer missed a RegistryObject reference. Add to CLASS_REMAPS.
-#
-# 4. AbstractMethodError on event handler
-#    → The old event signature doesn't match. Add to event shim.
-#
-# 5. Missing blocks/items in creative tab
-#    → Creative tab registration API changed. Check ShimDeferredRegister.`}</pre>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-orange-500/20 rounded-xl p-6">
-              <h2 className="text-xl font-bold text-white mb-3">⚠️ Current Status</h2>
-              <p className="text-sm text-gray-300 mb-3">
-                This is the initial skeleton. To get it working with Homespun, you'll need to:
-              </p>
-              <ul className="space-y-1.5 text-sm text-gray-400">
-                <li className="flex gap-2"><span className="text-orange-400">1.</span> Set up a Forge 1.20.1 dev environment and get the project compiling</li>
-                <li className="flex gap-2"><span className="text-orange-400">2.</span> Create a minimal test mod (just one block) using 1.19.2 API patterns</li>
-                <li className="flex gap-2"><span className="text-orange-400">3.</span> Run it with ForgeCompat and iterate on errors</li>
-                <li className="flex gap-2"><span className="text-orange-400">4.</span> Once the minimal test works, try the full Homespun mod</li>
-                <li className="flex gap-2"><span className="text-orange-400">5.</span> Add more shims/transforms as needed for Homespun's specific APIs</li>
+        {/* Key insight */}
+        <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-orange-500/20 rounded-xl p-6">
+          <h2 className="text-xl font-bold text-white mb-3">Why translation, not shims?</h2>
+          <div className="grid sm:grid-cols-2 gap-4 text-sm">
+            <div>
+              <h3 className="text-red-400 font-semibold mb-2">Shim approach (bad):</h3>
+              <ul className="space-y-1 text-gray-400">
+                <li>• Re-implements the entire old API surface</li>
+                <li>• Maintains fake Material, RegistryObject, etc. classes</li>
+                <li>• Adds runtime overhead (wrapper indirection)</li>
+                <li>• More code to maintain</li>
+                <li>• Errors point to shim code, not real APIs</li>
               </ul>
-              <p className="text-sm text-gray-400 mt-3">
-                The Material system, Registry system, and Entity field→method transforms are the three biggest pieces. 
-                Get those working first and most of Homespun should follow.
+            </div>
+            <div>
+              <h3 className="text-green-400 font-semibold mb-2">Translation approach (good):</h3>
+              <ul className="space-y-1 text-gray-400">
+                <li>• Rewrites old code to new code directly</li>
+                <li>• No fake classes (except tiny data bags)</li>
+                <li>• Zero runtime overhead</li>
+                <li>• Less code, easier to maintain</li>
+                <li>• Errors point to real 1.20.1 APIs</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* TranslationRules */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <h2 className="text-xl font-bold text-white mb-4">TranslationRules.java — the brain</h2>
+          <p className="text-sm text-gray-400 mb-4">
+            All translation logic lives in one file. To add support for a new API change, just add an entry:
+          </p>
+          <div className="bg-gray-950 rounded-lg p-4 border border-gray-700 font-mono text-xs overflow-x-auto">
+            <pre className="text-gray-300">{`// Method rename:
+new MethodRename(
+    "net/minecraft/server/level/ServerPlayer",
+    "getLevel", "()L...ServerLevel;",
+    "serverLevel", "()L...ServerLevel;"
+),
+
+// Field → method:
+new FieldToMethod(
+    "net/minecraft/world/entity/Entity",
+    "level", "L...Level;",
+    "level", "()L...Level;"
+),
+
+// Material flags (for inlining):
+MATERIAL_FLAGS.put("WOOD", new MaterialFlags(
+    true,   // ignitedByLava
+    false,  // liquid
+    false,  // noCollission
+    false,  // replaceable
+    false,  // requiresCorrectTool
+    MaterialFlags.PUSH_NORMAL
+)),
+
+// Capability remap:
+new CapabilityRemap(
+    "net/minecraftforge/common/capabilities/CapabilityItemHandler",
+    "ITEM_HANDLER_CAPABILITY",
+    "net/minecraftforge/common/ForgeCapabilities",
+    "ITEM_HANDLER"
+),`}</pre>
+          </div>
+        </div>
+
+        {/* Material handling */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <h2 className="text-xl font-bold text-white mb-4">How Material is handled</h2>
+          <p className="text-sm text-gray-400 mb-4">
+            Material was removed in 1.20.1. The transformer handles two cases:
+          </p>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+              <h3 className="text-sm font-semibold text-green-400 mb-2">Case 1: Compile-time constant</h3>
+              <p className="text-xs text-gray-400 mb-2">
+                <code className="text-gray-300">Properties.of(Material.WOOD)</code>
+              </p>
+              <p className="text-xs text-gray-400">
+                The transformer sees <code className="text-orange-400">GETSTATIC Material.WOOD</code> followed by <code className="text-orange-400">INVOKESTATIC Properties.of(Material)</code>, looks up WOOD's flags in <code className="text-orange-400">MATERIAL_FLAGS</code>, and inlines them directly. No Material class needed at runtime.
+              </p>
+            </div>
+            <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+              <h3 className="text-sm font-semibold text-yellow-400 mb-2">Case 2: Variable Material</h3>
+              <p className="text-xs text-gray-400 mb-2">
+                <code className="text-gray-300">Material m = getMaterial(); Properties.of(m);</code>
+              </p>
+              <p className="text-xs text-gray-400">
+                The transformer can't inline flags it doesn't know at transform time. It rewrites to <code className="text-orange-400">CompatHelpers.of(m)</code> where <code className="text-orange-400">m</code> is a <code className="text-orange-400">MaterialData</code> (just a data bag of flag values).
               </p>
             </div>
           </div>
-        )}
-      </div>
-    </div>
-  )
-}
+        </div>
 
-function FileItem({ path, desc }: { path: string; desc: string }) {
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 p-2 bg-gray-800/50 rounded">
-      <code className="text-orange-400 text-xs font-mono break-all">{path}</code>
-      <span className="text-gray-500 text-xs">— {desc}</span>
+        {/* Usage */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <h2 className="text-xl font-bold text-white mb-4">Usage</h2>
+          <div className="space-y-3 text-sm text-gray-300">
+            <ol className="space-y-2 list-decimal list-inside">
+              <li>Set up a Forge 1.20.1 MDK</li>
+              <li>Copy <code className="text-orange-400">forgecompat/src/</code> into it</li>
+              <li>Run <code className="text-orange-400">./gradlew build</code></li>
+              <li>Put the output JAR + a 1.19.2 mod JAR in the mods folder</li>
+              <li>Launch 1.20.1 Forge — the transformer rewrites the target mod's bytecode on load</li>
+            </ol>
+            <p className="text-gray-400 mt-3">
+              First test target: <a href="https://github.com/PrincessStrelka/Homespun" className="text-orange-400 hover:underline" target="_blank" rel="noreferrer">Homespun</a> by PrincessStrelka.
+            </p>
+          </div>
+        </div>
+
+        {/* Files */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <h2 className="text-xl font-bold text-white mb-4">Files in this project</h2>
+          <div className="space-y-2 text-sm">
+            {[
+              ['forgecompat/build.gradle', 'ForgeGradle 6.x for 1.20.1'],
+              ['forgecompat/gradle.properties', 'MC 1.20.1, Forge 47.2.0'],
+              ['forgecompat/src/main/java/.../ForgeCompat.java', '@Mod entry point'],
+              ['forgecompat/src/main/java/.../RuntimeAdapter.java', 'Minimal runtime hooks'],
+              ['forgecompat/src/main/java/.../translate/TranslationRules.java', 'ALL translation rules (the data)'],
+              ['forgecompat/src/main/java/.../translate/MaterialData.java', 'Minimal data bag for variable Materials'],
+              ['forgecompat/src/main/java/.../translate/CompatHelpers.java', 'Tiny helpers for non-inlineable cases'],
+              ['forgecompat/src/main/java/.../transformer/ForgeCompatTransformer.java', 'The bytecode rewriter (the brain)'],
+              ['forgecompat/src/main/resources/forgecompat_coremod.js', 'CoreMod JS bridge'],
+              ['forgecompat/src/main/resources/META-INF/mods.toml', 'Mod metadata + CoreMod declaration'],
+            ].map(([path, desc], i) => (
+              <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 p-2 bg-gray-800/50 rounded">
+                <code className="text-orange-400 text-xs font-mono break-all">{path}</code>
+                <span className="text-gray-500 text-xs">— {desc}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

@@ -63,11 +63,6 @@ public class TranslationRules {
             "serverLevel", "()Lnet/minecraft/server/level/ServerLevel;"
         ),
         new MethodRename(
-            "net/minecraft/server/level/ServerPlayer",
-            "setLevel", "(Lnet/minecraft/server/level/ServerLevel;)V",
-            "setServerLevel", "(Lnet/minecraft/server/level/ServerLevel;)V"
-        ),
-        new MethodRename(
             "net/minecraft/world/entity/Entity",
             "outOfWorld", "()Z",
             "onBelowWorld", "()Z"
@@ -78,23 +73,18 @@ public class TranslationRules {
             "checkBelowWorld", "()V"
         ),
         
-        // ItemStack
+        // ItemStack - sameItem instance method
         new MethodRename(
             "net/minecraft/world/item/ItemStack",
             "sameItem", "(Lnet/minecraft/world/item/ItemStack;)Z",
             "isSameItem", "(Lnet/minecraft/world/item/ItemStack;)Z"
         ),
+        
+        // ItemStack - tagMatches was static with two args in 1.19.2
         new MethodRename(
             "net/minecraft/world/item/ItemStack",
-            "tagMatches", "(Lnet/minecraft/world/item/ItemStack;)Z",
-            "isSameItemSameTags", "(Lnet/minecraft/world/item/ItemStack;)Z"
-        ),
-        
-        // Damage
-        new MethodRename(
-            "net/minecraft/world/damagesource/DamageSources",
-            "outOfWorld", "()Lnet/minecraft/world/damagesource/DamageSource;",
-            "fellOutOfWorld", "()Lnet/minecraft/world/damagesource/DamageSource;"
+            "tagMatches", "(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemStack;)Z",
+            "isSameItemSameTags", "(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemStack;)Z"
         ),
         
         // Block properties
@@ -130,13 +120,6 @@ public class TranslationRules {
             "getNewTarget", "()Lnet/minecraft/world/entity/LivingEntity;"
         ),
         
-        // Loot
-        new MethodRename(
-            "net/minecraft/world/level/storage/loot/LootContext$Builder",
-            null, null,  // handled as complex pattern
-            null, null
-        ),
-        
         // CreativeModeTab - old constructor removed
         // 1.19.2: new CreativeModeTab("name") { makeIcon() { ... } }
         // 1.20.1: CreativeModeTab.builder().title(...).icon(...).build()
@@ -160,10 +143,10 @@ public class TranslationRules {
             "level", "()Lnet/minecraft/world/level/Level;"
         ),
         
-        // Entity.isOnGround (field) → Entity.onGround() (method)
+        // Entity.onGround (field) → Entity.onGround() (method)
         new FieldToMethod(
             "net/minecraft/world/entity/Entity",
-            "isOnGround", "Z",
+            "onGround", "Z",
             "onGround", "()Z"
         ),
     };
@@ -178,12 +161,15 @@ public class TranslationRules {
     //    rewrites to CompatHelpers.of(material) which does runtime lookup.
     // ================================================================
     
+    // Material constructor in 1.19.2: Material(MaterialColor, solid, liquid, solidBlocking, replaceable, flammable, blocksMotion, pushReaction)
+    // Properties.of() in 1.20.1 needs: ignitedByLava, liquid, noCollission, replaceable, mapColor, instrument, pushReaction
     public record MaterialFlags(
-        boolean ignitedByLava,      // was flammable
-        boolean liquid,
-        boolean noCollission,       // was non-solid
-        boolean replaceable,
-        boolean requiresCorrectTool,
+        boolean flammable,          // → ignitedByLava()
+        boolean liquid,             // → liquid()
+        boolean blocksMotion,       // → noCollission() if false
+        boolean replaceable,        // → replaceable()
+        String mapColor,            // → mapColor(MapColor.X)
+        String instrument,          // → instrument(NoteBlockInstrument.X)
         int pushReaction            // 0=NORMAL, 1=DESTROY, 2=BLOCK, 3=PUSH_ONLY
     ) {
         public static final int PUSH_NORMAL = 0;
@@ -194,139 +180,57 @@ public class TranslationRules {
     
     public static final Map<String, MaterialFlags> MATERIAL_FLAGS = new HashMap<>();
     static {
-        // The most common ones mods use:
-        MATERIAL_FLAGS.put("WOOD", new MaterialFlags(
-            true, false, false, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("STONE", new MaterialFlags(
-            false, false, false, false, true, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("METAL", new MaterialFlags(
-            false, false, false, false, true, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("DIRT", new MaterialFlags(
-            false, false, false, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("PLANT", new MaterialFlags(
-            true, false, true, false, false, MaterialFlags.PUSH_DESTROY
-        ));
-        MATERIAL_FLAGS.put("REPLACEABLE_PLANT", new MaterialFlags(
-            true, false, true, true, false, MaterialFlags.PUSH_DESTROY
-        ));
-        MATERIAL_FLAGS.put("WATER", new MaterialFlags(
-            false, true, true, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("LAVA", new MaterialFlags(
-            false, true, true, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("SAND", new MaterialFlags(
-            false, false, false, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("GLASS", new MaterialFlags(
-            false, false, false, false, false, MaterialFlags.PUSH_DESTROY
-        ));
-        MATERIAL_FLAGS.put("WOOL", new MaterialFlags(
-            true, false, false, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("ICE", new MaterialFlags(
-            false, false, false, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("CLAY", new MaterialFlags(
-            false, false, false, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("GRASS", new MaterialFlags(
-            false, false, false, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("DECORATION", new MaterialFlags(
-            false, false, true, false, false, MaterialFlags.PUSH_DESTROY
-        ));
-        MATERIAL_FLAGS.put("FIRE", new MaterialFlags(
-            false, false, true, false, false, MaterialFlags.PUSH_DESTROY
-        ));
-        MATERIAL_FLAGS.put("AIR", new MaterialFlags(
-            false, false, true, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("EXPLOSIVE", new MaterialFlags(
-            true, false, false, false, false, MaterialFlags.PUSH_DESTROY
-        ));
-        MATERIAL_FLAGS.put("NETHER_WOOD", new MaterialFlags(
-            false, false, false, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("BAMBOO", new MaterialFlags(
-            true, false, true, false, false, MaterialFlags.PUSH_DESTROY
-        ));
-        MATERIAL_FLAGS.put("HEAVY_METAL", new MaterialFlags(
-            false, false, false, false, true, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("AMETHYST", new MaterialFlags(
-            false, false, false, false, true, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("MOSS", new MaterialFlags(
-            true, false, false, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("CAKE", new MaterialFlags(
-            false, false, false, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("WEB", new MaterialFlags(
-            false, false, true, false, false, MaterialFlags.PUSH_DESTROY
-        ));
-        MATERIAL_FLAGS.put("SPONGE", new MaterialFlags(
-            false, false, false, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("SCULK", new MaterialFlags(
-            false, false, false, false, false, MaterialFlags.PUSH_DESTROY
-        ));
-        MATERIAL_FLAGS.put("BUILDABLE_GLASS", new MaterialFlags(
-            false, false, false, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("FABRIC", new MaterialFlags(
-            true, false, false, false, false, MaterialFlags.PUSH_DESTROY
-        ));
-        MATERIAL_FLAGS.put("VEGETABLE", new MaterialFlags(
-            true, false, true, false, false, MaterialFlags.PUSH_DESTROY
-        ));
-        MATERIAL_FLAGS.put("EGG", new MaterialFlags(
-            false, false, false, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("PORTAL", new MaterialFlags(
-            false, false, false, false, false, MaterialFlags.PUSH_BLOCK
-        ));
-        MATERIAL_FLAGS.put("BARRIER", new MaterialFlags(
-            false, false, false, false, false, MaterialFlags.PUSH_BLOCK
-        ));
-        MATERIAL_FLAGS.put("PISTON", new MaterialFlags(
-            false, false, false, false, false, MaterialFlags.PUSH_BLOCK
-        ));
-        MATERIAL_FLAGS.put("MUD", new MaterialFlags(
-            false, false, false, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("SNOW", new MaterialFlags(
-            false, false, false, false, false, MaterialFlags.PUSH_DESTROY
-        ));
-        MATERIAL_FLAGS.put("FROGED_ICE", new MaterialFlags(
-            false, false, false, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("BUBBLE_COLUMN", new MaterialFlags(
-            false, true, true, false, false, MaterialFlags.PUSH_ONLY
-        ));
-        MATERIAL_FLAGS.put("SHULKER_SHELL", new MaterialFlags(
-            false, false, false, false, true, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("STRUCTURAL_AIR", new MaterialFlags(
-            false, false, true, false, false, MaterialFlags.PUSH_NORMAL
-        ));
-        MATERIAL_FLAGS.put("WATER_PLANT", new MaterialFlags(
-            true, false, true, false, false, MaterialFlags.PUSH_DESTROY
-        ));
-        MATERIAL_FLAGS.put("NETHER_PLANT", new MaterialFlags(
-            true, false, true, false, false, MaterialFlags.PUSH_DESTROY
-        ));
-        MATERIAL_FLAGS.put("REPLACEABLE_FIREPROOF_PLANT", new MaterialFlags(
-            false, false, true, true, false, MaterialFlags.PUSH_DESTROY
-        ));
-        MATERIAL_FLAGS.put("CLOTH_DECORATION", new MaterialFlags(
-            true, false, true, false, false, MaterialFlags.PUSH_DESTROY
-        ));
+        // Actual 1.19.2 Material constants
+        // Format: MaterialFlags(flammable, liquid, blocksMotion, replaceable, mapColor, instrument, pushReaction)
+        // mapColor and instrument are null to use defaults (can be expanded later)
+        
+        MATERIAL_FLAGS.put("AIR", new MaterialFlags(false, false, false, false, "NONE", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("STRUCTURAL_AIR", new MaterialFlags(false, false, false, false, "NONE", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("PORTAL", new MaterialFlags(false, false, true, false, "COLOR_LIGHT_BLUE", null, MaterialFlags.PUSH_BLOCK));
+        MATERIAL_FLAGS.put("CLOTH_DECORATION", new MaterialFlags(true, false, true, false, "COLOR_RED", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("PLANT", new MaterialFlags(true, false, false, false, "PLANT", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("WATER_PLANT", new MaterialFlags(true, true, false, false, "WATER", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("REPLACEABLE_PLANT", new MaterialFlags(true, false, false, true, "PLANT", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("REPLACEABLE_FIREPROOF_PLANT", new MaterialFlags(false, false, false, true, "FIRE", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("REPLACEABLE_WATER_PLANT", new MaterialFlags(false, true, false, true, "WATER", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("WATER", new MaterialFlags(false, true, false, false, "WATER", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("BUBBLE_COLUMN", new MaterialFlags(false, true, false, false, "WATER", null, MaterialFlags.PUSH_ONLY));
+        MATERIAL_FLAGS.put("LAVA", new MaterialFlags(false, true, false, false, "FIRE", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("TOP_SNOW", new MaterialFlags(false, false, false, true, "SNOW", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("FIRE", new MaterialFlags(false, false, false, false, "FIRE", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("DECORATION", new MaterialFlags(false, false, false, false, "DECORATION", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("WEB", new MaterialFlags(false, false, false, false, "WOOL", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("SCULK", new MaterialFlags(false, false, true, false, "COLOR_CYAN", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("BUILDABLE_GLASS", new MaterialFlags(false, false, true, false, "NONE", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("CLAY", new MaterialFlags(false, false, true, false, "CLAY", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("DIRT", new MaterialFlags(false, false, true, false, "DIRT", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("GRASS", new MaterialFlags(false, false, true, false, "GRASS", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("ICE_SOLID", new MaterialFlags(false, false, true, false, "ICE", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("SAND", new MaterialFlags(false, false, true, false, "SAND", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("SPONGE", new MaterialFlags(false, false, true, false, "COLOR_YELLOW", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("SHULKER_SHELL", new MaterialFlags(false, false, true, false, "COLOR_PURPLE", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("WOOD", new MaterialFlags(true, false, true, false, "WOOD", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("NETHER_WOOD", new MaterialFlags(false, false, true, false, "WARPED_STEM", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("BAMBOO_SAPLING", new MaterialFlags(true, false, false, false, "PLANT", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("BAMBOO", new MaterialFlags(true, false, false, false, "BAMBOO", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("WOOL", new MaterialFlags(true, false, true, false, "WOOL", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("EXPLOSIVE", new MaterialFlags(true, false, true, false, "FIRE", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("LEAVES", new MaterialFlags(true, false, false, false, "PLANT", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("GLASS", new MaterialFlags(false, false, true, false, "NONE", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("ICE", new MaterialFlags(false, false, true, false, "ICE", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("CACTUS", new MaterialFlags(true, false, true, false, "PLANT", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("STONE", new MaterialFlags(false, false, true, false, "STONE", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("METAL", new MaterialFlags(false, false, true, false, "METAL", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("SNOW", new MaterialFlags(false, false, false, true, "SNOW", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("HEAVY_METAL", new MaterialFlags(false, false, true, false, "METAL", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("BARRIER", new MaterialFlags(false, false, true, false, "NONE", null, MaterialFlags.PUSH_BLOCK));
+        MATERIAL_FLAGS.put("PISTON", new MaterialFlags(false, false, true, false, "DIRT", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("MOSS", new MaterialFlags(true, false, true, false, "PLANT", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("VEGETABLE", new MaterialFlags(true, false, false, false, "PLANT", null, MaterialFlags.PUSH_DESTROY));
+        MATERIAL_FLAGS.put("EGG", new MaterialFlags(false, false, true, false, "NONE", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("CAKE", new MaterialFlags(false, false, true, false, "NONE", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("AMETHYST", new MaterialFlags(false, false, true, false, "COLOR_PURPLE", null, MaterialFlags.PUSH_NORMAL));
+        MATERIAL_FLAGS.put("POWDER_SNOW", new MaterialFlags(false, false, false, false, "SNOW", null, MaterialFlags.PUSH_NORMAL));
     }
     
     // ================================================================

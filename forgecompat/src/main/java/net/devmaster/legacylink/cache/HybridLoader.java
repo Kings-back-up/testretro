@@ -10,12 +10,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Hybrid loader that combines pre-translation (cache) with runtime transformation (fallback).
+ * Hybrid loader that patches 1.19.2 mods in place to work with 1.20.1.
  * 
- * Loading strategy:
- * 1. Try to load from cache (fast path)
- * 2. If not cached, pre-translate and cache (slow path, first time only)
- * 3. If pre-translation fails, enable runtime transformation as fallback
+ * Strategy:
+ * 1. Scan all mods in mods folder
+ * 2. Detect 1.19.2 mods that need patching
+ * 3. Patch them in place (modify mods.toml to relax version requirements)
+ * 4. Ask user to restart
+ * 5. On restart, patched mods load normally
  */
 public class HybridLoader {
     
@@ -41,8 +43,51 @@ public class HybridLoader {
     }
     
     /**
-     * Process all mods in the mods directory.
-     * This is called during mod loading to prepare translations.
+     * Patch all 1.19.2 mods in place.
+     * This modifies the original JARs to relax version requirements.
+     * 
+     * @param modsDir Path to the mods directory
+     * @return true if any mods were patched, false otherwise
+     */
+    public boolean patchModsInPlace(Path modsDir) {
+        LegacyLink.LOGGER.info("[LegacyLink] Scanning for 1.19.2 mods to patch...");
+        
+        boolean[] patched = {false};
+        
+        try {
+            Files.list(modsDir)
+                .filter(path -> path.toString().endsWith(".jar"))
+                .filter(path -> !path.getFileName().toString().contains("legacylink"))
+                .forEach(modJar -> {
+                    try {
+                        if (detector.needsTranslation(modJar)) {
+                            LegacyLink.LOGGER.info("[LegacyLink] Patching mod in place: {}", modJar.getFileName());
+                            
+                            // Patch the JAR in place
+                            JarTranslator.patchJarInPlace(modJar);
+                            
+                            patched[0] = true;
+                            
+                            LegacyLink.LOGGER.info("[LegacyLink] Successfully patched: {}", modJar.getFileName());
+                        }
+                    } catch (Exception e) {
+                        LegacyLink.LOGGER.error("[LegacyLink] Failed to patch mod: {}", modJar.getFileName(), e);
+                    }
+                });
+                
+        } catch (IOException e) {
+            LegacyLink.LOGGER.error("[LegacyLink] Failed to scan mods directory", e);
+        }
+        
+        if (patched[0]) {
+            LegacyLink.LOGGER.info("[LegacyLink] Patched mods in place - restart required");
+        }
+        
+        return patched[0];
+    }
+    
+    /**
+     * Process all mods in the mods directory (legacy method, kept for compatibility).
      * 
      * @param modsDir Path to the mods directory
      */

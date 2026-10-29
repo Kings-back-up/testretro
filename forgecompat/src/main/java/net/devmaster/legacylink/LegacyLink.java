@@ -12,15 +12,11 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Path;
 
 /**
- * LegacyLink - A hybrid compatibility layer for running 1.19.2 Forge mods on 1.20.1.
+ * LegacyLink - A compatibility layer for running 1.19.2 Forge mods on 1.20.1.
  * 
- * This mod uses a hybrid approach combining:
- * 1. Pre-translation to cache (Retromod-style) - for reliability and performance
- * 2. Runtime transformation fallback (our approach) - for edge cases
- * 3. Selective isolation (Retrofit-inspired) - for deep incompatibilities (future)
- * 
- * Usage: Place this mod in the mods folder alongside 1.19.2 target mods.
- * The system will automatically detect, translate, and cache compatible mods.
+ * This mod patches 1.19.2 mods in place to make them compatible with 1.20.1.
+ * On first run, it will patch all 1.19.2 mods and ask you to restart.
+ * On subsequent runs, the patched mods will load normally.
  */
 @Mod(LegacyLink.MOD_ID)
 public class LegacyLink {
@@ -34,13 +30,12 @@ public class LegacyLink {
         LOGGER.info("========================================");
         LOGGER.info("LegacyLink v0.1.0 initializing");
         LOGGER.info("Bridging 1.19.2 Forge mods to 1.20.1");
-        LOGGER.info("Hybrid approach: cache + runtime fallback");
         LOGGER.info("========================================");
         
-        // Initialize hybrid loader
-        initializeHybridLoader();
+        // Patch mods in place
+        patchModsInPlace();
         
-        // Register event handlers for runtime adaptation
+        // Register event handlers
         modEventBus.addListener(this::onCommonSetup);
         forgeEventBus.register(new RuntimeAdapter());
         
@@ -48,26 +43,38 @@ public class LegacyLink {
     }
     
     /**
-     * Initialize the hybrid loader system.
-     * This processes all mods in the mods folder and pre-translates them to cache.
+     * Patch all 1.19.2 mods in place.
+     * This modifies the original JARs to relax version requirements.
      */
-    private void initializeHybridLoader() {
+    private void patchModsInPlace() {
         try {
             Path modsDir = FMLLoader.getGamePath().resolve("mods");
             HybridLoader loader = HybridLoader.getInstance();
             
-            LOGGER.info("[LegacyLink] Starting hybrid loader...");
-            loader.processMods(modsDir);
+            LOGGER.info("[LegacyLink] Scanning mods folder...");
+            boolean patched = loader.patchModsInPlace(modsDir);
             
-            LOGGER.info("[LegacyLink] Hybrid loader complete. {} mods translated.", 
-                loader.getTranslatedCount());
+            if (patched) {
+                LOGGER.error("========================================");
+                LOGGER.error("LegacyLink has patched 1.19.2 mods!");
+                LOGGER.error("Please RESTART Minecraft to load them.");
+                LOGGER.error("========================================");
                 
+                // Throw an exception to stop the game and force restart
+                throw new RuntimeException("LegacyLink: Please restart Minecraft to load patched mods");
+            } else {
+                LOGGER.info("[LegacyLink] No mods needed patching");
+            }
+                
+        } catch (RuntimeException e) {
+            // Re-throw our restart exception
+            throw e;
         } catch (Exception e) {
-            LOGGER.error("[LegacyLink] Failed to initialize hybrid loader", e);
+            LOGGER.error("[LegacyLink] Failed to patch mods", e);
         }
     }
     
     private void onCommonSetup(final net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent event) {
-        LOGGER.info("LegacyLink common setup - hybrid translation layer active");
+        LOGGER.info("LegacyLink common setup - translation layer active");
     }
 }

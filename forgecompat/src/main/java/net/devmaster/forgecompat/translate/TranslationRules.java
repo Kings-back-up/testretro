@@ -39,6 +39,22 @@ public class TranslationRules {
     }
     
     // ================================================================
+    // SUPERCLASS RENAMES
+    //    Only applied when a class is used as a superclass.
+    //    This is separate from CLASS_RENAMES to avoid breaking other references.
+    // ================================================================
+    
+    public static final Map<String, String> SUPERCLASS_RENAMES = new HashMap<>();
+    static {
+        // CreativeModeTab - redirect anonymous subclasses to our compat class
+        // This handles the old pattern: new CreativeModeTab("name") { makeIcon() { ... } }
+        SUPERCLASS_RENAMES.put(
+            "net/minecraft/world/item/CreativeModeTab",
+            "net/devmaster/forgecompat/shim/CreativeModeTabCompat"
+        );
+    }
+    
+    // ================================================================
     // 2. METHOD RENAMES
     //    owner + old name + old descriptor → new name + new descriptor
     //    The owner and descriptor help disambiguate overloads.
@@ -128,6 +144,11 @@ public class TranslationRules {
             null, null,  // handled as complex pattern
             null, null
         ),
+        
+        // CreativeModeTab - old constructor removed
+        // 1.19.2: new CreativeModeTab("name") { makeIcon() { ... } }
+        // 1.20.1: CreativeModeTab.builder().title(...).icon(...).build()
+        // This needs special handling in the transformer
     };
     
     // ================================================================

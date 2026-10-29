@@ -4,7 +4,21 @@ Translates 1.19.2 Forge mod bytecode directly to 1.20.1 at class load time.
 
 **No shim classes. No fake API. No wrappers.** The transformer reads the old bytecode and rewrites it to call the new 1.20.1 APIs directly.
 
-## How it works
+## ⚠️ IMPORTANT: Patching Required
+
+Before using a 1.19.2 mod with ForgeCompat, you **must** patch its metadata to accept Minecraft 1.20.1. This is a simple one-time edit per mod.
+
+**[📖 See the patching guide →](HOW_TO_PATCH_A_MOD.md)**
+
+**Quick summary:**
+1. Open the 1.19.2 mod JAR with a ZIP editor
+2. Edit `META-INF/mods.toml`
+3. Change `versionRange="[1.19.2,1.20)"` to `versionRange="[1.19.2,1.21)"`
+4. Save and close
+
+That's it! Takes about 2 minutes per mod.
+
+## How It Works
 
 ```
 1.19.2 mod bytecode          ForgeCompatTransformer           1.20.1 runtime
@@ -15,108 +29,87 @@ INVOKEVIRTUAL getLevel() →   renames method               →   INVOKEVIRTUAL 
 GETSTATIC CapabilityItemHandler.X →  remaps owner+field   →   GETSTATIC ForgeCapabilities.X
 ```
 
-The transformer pattern-matches old bytecode sequences and replaces them with new ones. For example:
+The transformer pattern-matches old bytecode sequences and replaces them with new ones.
 
-```
-// What the 1.19.2 mod's bytecode looks like:
-GETSTATIC net/minecraft/world/level/material/Material.WOOD
-INVOKESTATIC Properties.of(Material)Properties
+## Installation
 
-// What the transformer rewrites it to:
-INVOKESTATIC Properties.of()Properties
-INVOKEVIRTUAL Properties.ignitedByLava()Properties
-```
+1. **Install ForgeCompat:**
+   - Download `forgecompat-0.1.0.jar`
+   - Place it in your `mods` folder
 
-No `Material` class exists at runtime. The flags are inlined directly.
+2. **Patch your 1.19.2 mods:**
+   - Follow [HOW_TO_PATCH_A_MOD.md](HOW_TO_PATCH_A_MOD.md)
+   - Takes 2 minutes per mod
+   - Only needs to be done once per mod
+
+3. **Launch Minecraft:**
+   - Start Minecraft 1.20.1 with Forge
+   - Your 1.19.2 mods should now work!
 
 ## Architecture
 
 ```
-forgecompat/src/main/java/net/minecraftforge/compat/
+forgecompat/src/main/java/net/devmaster/forgecompat/
 ├── ForgeCompat.java              # @Mod entry point
-├── RuntimeAdapter.java           # Minimal runtime hooks (logging, etc.)
+├── RuntimeAdapter.java           # Minimal runtime hooks
 ├── translate/
-│   ├── TranslationRules.java     # ALL translation rules (the data)
+│   ├── TranslationRules.java     # ALL translation rules
 │   ├── MaterialData.java         # Minimal data holder for variable Materials
-│   └── CompatHelpers.java        # Tiny helpers for cases that can't be inlined
+│   └── CompatHelpers.java        # Tiny helpers for edge cases
 └── transformer/
-    └── ForgeCompatTransformer.java  # The actual bytecode rewriter
+    └── ForgeCompatTransformer.java  # The bytecode rewriter
 ```
-
-### What's in each file:
-
-- **TranslationRules.java** — The single source of truth. Contains:
-  - `CLASS_RENAMES` — MaterialColor → MapColor, etc.
-  - `METHOD_RENAMES` — getLevel() → serverLevel(), etc.
-  - `FIELD_TO_METHODS` — entity.level → entity.level()
-  - `MATERIAL_FLAGS` — What flags each Material constant maps to
-  - `CAPABILITY_REMAPS` — CapabilityItemHandler.X → ForgeCapabilities.X
-  - `EVENT_RENAMES` — LivingSetAttackTargetEvent → LivingChangeTargetEvent
-  - `REGISTRY_FACTORY_REMAPS` — DeferredRegister.create(ForgeRegistries.BLOCKS, id) → createBlocks(id)
-
-- **ForgeCompatTransformer.java** — Reads TranslationRules and applies them:
-  - Pattern-matches `Properties.of(Material.X)` and inlines the flags
-  - Rewrites `GETFIELD entity.level` to `INVOKEVIRTUAL entity.level()`
-  - Renames method calls per METHOD_RENAMES
-  - Remaps capability field access
-  - Handles the DeferredRegister factory pattern
-  - Falls back to `CompatHelpers.of(material)` only when Material is in a variable
-
-- **MaterialData.java** — NOT a re-implementation of Material. Just a data bag with the flag values. Only used at runtime when a mod stores a Material in a variable (the transformer can't inline flags it doesn't know at transform time).
-
-- **CompatHelpers.java** — Tiny static methods for the rare cases where pure bytecode rewriting isn't practical. Most translations happen inline; these are the exception.
 
 ## Building
 
 ```bash
-# Needs a Forge 1.20.1 MDK environment
 cd forgecompat
 ./gradlew build
 # Output: build/libs/forgecompat-0.1.0.jar
 ```
 
-## Testing with Homespun
+## Testing
 
 1. Build ForgeCompat
-2. Get a 1.19.2 build of Homespun (before its NeoForge port)
-3. Put both JARs in a 1.20.1 Forge mods folder
-4. Launch and watch the log for `[ForgeCompat]` messages
-5. Check that blocks, items, creative tab, fluids, and recipes work
+2. Patch your 1.19.2 mod (see [HOW_TO_PATCH_A_MOD.md](HOW_TO_PATCH_A_MOD.md))
+3. Place both JARs in your mods folder
+4. Launch and check logs for `[ForgeCompat]` messages
 
-## Adding new translations
+## Adding Translations
 
-Just add entries to `TranslationRules.java`. For example, to add a new method rename:
+Add entries to `TranslationRules.java`:
 
 ```java
+// Method rename
 new MethodRename(
     "net/minecraft/world/some/Class",
-    "oldMethodName", "(Lsome/param;)ReturnType",
-    "newMethodName", "(Lsome/param;)ReturnType"
+    "oldMethodName", "(Lparam;)Return",
+    "newMethodName", "(Lparam;)Return"
 ),
-```
 
-For a new field→method conversion:
-
-```java
+// Field → method
 new FieldToMethod(
     "net/minecraft/world/entity/Entity",
-    "fieldName", "Lfield/Type;",
-    "methodName", "()Lfield/Type;"
+    "fieldName", "LType;",
+    "methodName", "()LType;"
 ),
-```
 
-For a new Material constant:
-
-```java
+// Material flags
 MATERIAL_FLAGS.put("NEW_MATERIAL", new MaterialFlags(
     true,   // ignitedByLava
     false,  // liquid
     false,  // noCollission
     false,  // replaceable
     false,  // requiresCorrectTool
-    MaterialFlags.PUSH_NORMAL  // pushReaction
+    MaterialFlags.PUSH_NORMAL
 ));
 ```
+
+## Why Patching is Necessary
+
+Forge validates mod version requirements before loading any mods. By the time ForgeCompat runs, 1.19.2 mods have already been rejected. The patching step changes the version requirement so Forge accepts the mod, then ForgeCompat translates the bytecode at runtime.
+
+See [THE_PATCHING_PROBLEM.md](THE_PATCHING_PROBLEM.md) for a detailed explanation.
 
 ## License
 

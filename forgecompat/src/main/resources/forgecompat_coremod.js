@@ -3,8 +3,11 @@
 // No shim classes. No wrappers. Just translation.
 
 var Transformer = Java.type('net.devmaster.forgecompat.transformer.ForgeCompatTransformer');
+var Logger = Java.type('net.devmaster.forgecompat.ForgeCompat').LOGGER;
 
 function initializeCoreMod() {
+    Logger.info('[ForgeCompat] CoreMod initialized - bytecode translator active');
+    
     return {
         'forgecompat_translator': {
             'target': {
@@ -16,6 +19,7 @@ function initializeCoreMod() {
                             targets.push(classNames[i]);
                         }
                     }
+                    Logger.info('[ForgeCompat] Found {} classes to transform', targets.size());
                     return targets;
                 }
             },
@@ -24,7 +28,7 @@ function initializeCoreMod() {
                     return Transformer.transform(classNode.name, classNode);
                 } catch (e) {
                     // Don't crash the game — log and pass through
-                    print('[ForgeCompat] Error transforming ' + classNode.name + ': ' + e);
+                    Logger.error('[ForgeCompat] Error transforming ' + classNode.name + ': ' + e);
                     return classNode;
                 }
             }

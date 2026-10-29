@@ -1,4 +1,4 @@
-package net.devmaster.forgecompat.shim;
+package net.devmaster.legacylink.shim;
 
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;

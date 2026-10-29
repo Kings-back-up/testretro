@@ -1,15 +1,15 @@
-// ForgeCompat CoreMod - Pure bytecode translator
+// LegacyLink CoreMod - Pure bytecode translator
 // Rewrites 1.19.2 Forge mod bytecode directly to 1.20.1.
 // No shim classes. No wrappers. Just translation.
 
-var Transformer = Java.type('net.devmaster.forgecompat.transformer.ForgeCompatTransformer');
-var Logger = Java.type('net.devmaster.forgecompat.ForgeCompat').LOGGER;
+var Transformer = Java.type('net.devmaster.legacylink.transformer.LegacyLinkTransformer');
+var Logger = Java.type('net.devmaster.legacylink.LegacyLink').LOGGER;
 
 function initializeCoreMod() {
-    Logger.info('[ForgeCompat] CoreMod initialized - bytecode translator active');
+    Logger.info('[LegacyLink] CoreMod initialized - bytecode translator active');
     
     return {
-        'forgecompat_translator': {
+        'legacylink_translator': {
             'target': {
                 'type': 'CLASS',
                 'names': function(classNames) {
@@ -19,7 +19,7 @@ function initializeCoreMod() {
                             targets.push(classNames[i]);
                         }
                     }
-                    Logger.info('[ForgeCompat] Found {} classes to transform', targets.size());
+                    Logger.info('[LegacyLink] Found {} classes to transform', targets.size());
                     return targets;
                 }
             },
@@ -28,7 +28,7 @@ function initializeCoreMod() {
                     return Transformer.transform(classNode.name, classNode);
                 } catch (e) {
                     // Don't crash the game — log and pass through
-                    Logger.error('[ForgeCompat] Error transforming ' + classNode.name + ': ' + e);
+                    Logger.error('[LegacyLink] Error transforming ' + classNode.name + ': ' + e);
                     return classNode;
                 }
             }

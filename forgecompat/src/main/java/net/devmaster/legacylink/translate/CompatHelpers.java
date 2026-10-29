@@ -1,8 +1,8 @@
-package net.devmaster.forgecompat.translate;
+package net.devmaster.legacylink.translate;
 
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.PushReaction;
-import net.devmaster.forgecompat.translate.TranslationRules.MaterialFlags;
+import net.devmaster.legacylink.translate.TranslationRules.MaterialFlags;
 
 /**
  * Tiny static helpers for translation patterns that can't be expressed as

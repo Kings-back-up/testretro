@@ -40,20 +40,11 @@ public class TranslationRules {
     }
     
     // ================================================================
-    // SUPERCLASS RENAMES
-    //    Only applied when a class is used as a superclass.
-    //    This is separate from CLASS_RENAMES to avoid breaking other references.
+    // NOTE: CreativeModeTab is handled specially in the transformer.
+    // The anonymous subclass keeps extending the real CreativeModeTab,
+    // but the constructor call is rewritten to use the Builder pattern.
+    // See LegacyLinkTransformer.transformMethodCall() for details.
     // ================================================================
-    
-    public static final Map<String, String> SUPERCLASS_RENAMES = new HashMap<>();
-    static {
-        // CreativeModeTab - redirect anonymous subclasses to our compat class
-        // This handles the old pattern: new CreativeModeTab("name") { makeIcon() { ... } }
-        SUPERCLASS_RENAMES.put(
-            "net/minecraft/world/item/CreativeModeTab",
-            "net/devmaster/legacylink/shim/CreativeModeTabCompat"
-        );
-    }
     
     // ================================================================
     // 2. METHOD RENAMES

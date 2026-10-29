@@ -29,11 +29,8 @@ public class LegacyLink {
         LOGGER.info("========================================");
         LOGGER.info("LegacyLink v0.1.0 initializing");
         LOGGER.info("Bridging 1.19.2 Forge mods to 1.20.1");
-        LOGGER.info("Pure bytecode translation - no shims");
+        LOGGER.info("Using ITransformationService for bytecode transformation");
         LOGGER.info("========================================");
-        
-        // Initialize the runtime transformer
-        net.devmaster.legacylink.transformer.LegacyLinkRuntimeTransformer.initialize();
         
         // Register event handlers for runtime adaptation
         modEventBus.addListener(this::onCommonSetup);

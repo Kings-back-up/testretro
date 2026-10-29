@@ -10,11 +10,6 @@ displayName="LegacyLink"
 authors=["DevMaster1015"]
 description='''A compatibility layer that translates 1.19.2 Forge mods to run on 1.20.1'''
 
-# CoreMod for bytecode transformation
-[[coremods]]
-    id="legacylink"
-    entrypoint="legacylink_coremod.js"
-
 # Base Forge
 [[dependencies.legacylink]]
     modId="forge"

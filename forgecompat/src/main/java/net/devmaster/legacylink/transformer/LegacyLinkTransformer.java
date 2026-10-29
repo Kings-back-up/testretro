@@ -31,7 +31,7 @@ public class LegacyLinkTransformer {
     private static final String MATERIAL_INTERNAL = "net/minecraft/world/level/material/Material";
     private static final String MATERIAL_DATA_INTERNAL = "net/devmaster/legacylink/translate/MaterialData";
     private static final String COMPAT_HELPERS_INTERNAL = "net/devmaster/legacylink/translate/CompatHelpers";
-    private static final String CREATIVE_MODE_TAB_COMPAT = "net/devmaster/legacylink/shim/CreativeModeTabCompat";
+    private static final String CREATIVE_MODE_TAB_ICON_HELPER = "net/devmaster/legacylink/shim/CreativeModeTabIconHelper";
     private static final String PROPERTIES_INTERNAL = "net/minecraft/world/level/block/state/BlockBehaviour$Properties";
     
     /**
@@ -96,11 +96,14 @@ public class LegacyLinkTransformer {
     private static boolean remapClassHierarchy(ClassNode cn) {
         boolean modified = false;
         
-        // Superclass - check both CLASS_RENAMES and SUPERCLASS_RENAMES
+        // Superclass - CreativeModeTab is deliberately NOT renamed here anymore.
+        // 1.20.1's CreativeModeTab has a usable protected (Builder) constructor,
+        // so the anonymous subclass can keep extending the REAL CreativeModeTab
+        // (see transformMethodCall()'s <init> rewrite below, and
+        // CreativeModeTabIconHelper). Renaming the superclass to an unrelated
+        // class broke every other CreativeModeTab-typed reference to it
+        // elsewhere in the mod's bytecode.
         String newSuper = TranslationRules.CLASS_RENAMES.get(cn.superName);
-        if (newSuper == null) {
-            newSuper = TranslationRules.SUPERCLASS_RENAMES.get(cn.superName);
-        }
         if (newSuper != null) { 
             net.devmaster.legacylink.LegacyLink.LOGGER.info("[LegacyLink] Superclass rename: {} → {}", cn.superName, newSuper);
             cn.superName = newSuper; 
@@ -441,15 +444,50 @@ public class LegacyLinkTransformer {
     // ================================================================
     
     private static boolean transformMethodCall(MethodNode method, MethodInsnNode insn) {
-        // Special handling for CreativeModeTab constructor
-        if (insn.name.equals("<init>")) {
-            if (insn.owner.equals("net/minecraft/world/item/CreativeModeTab")) {
-                net.devmaster.legacylink.LegacyLink.LOGGER.info("[LegacyLink] CreativeModeTab constructor detected: {}", insn.desc);
-                
-                // Redirect all CreativeModeTab constructors to our compat class
-                insn.owner = CREATIVE_MODE_TAB_COMPAT;
-                return true;
-            }
+        // Special handling for the removed CreativeModeTab(String) constructor.
+        // 1.20.1 only has CreativeModeTab(Builder) (protected) left, so we
+        // rewrite the super(tabName) call into:
+        //   super(CreativeModeTabIconHelper.buildBuilder(tabName))
+        //   CreativeModeTabIconHelper.bindPendingIcon(this)
+        // The anonymous class's superName is left untouched (still the real
+        // CreativeModeTab) - see remapClassHierarchy() above.
+        if (insn.name.equals("<init>")
+            && insn.owner.equals("net/minecraft/world/item/CreativeModeTab")
+            && insn.desc.equals("(Ljava/lang/String;)V")) {
+ 
+            net.devmaster.legacylink.LegacyLink.LOGGER.info(
+                "[LegacyLink] CreativeModeTab(String) constructor detected - rewriting to Builder pattern");
+ 
+            // Right before the <init> call, convert the String already on
+            // the stack into a Builder. Stack goes [this, String] -> [this, Builder].
+            InsnList before = new InsnList();
+            before.add(new MethodInsnNode(
+                Opcodes.INVOKESTATIC,
+                CREATIVE_MODE_TAB_ICON_HELPER,
+                "buildBuilder",
+                "(Ljava/lang/String;)Lnet/minecraft/world/item/CreativeModeTab$Builder;",
+                false
+            ));
+            method.instructions.insertBefore(insn, before);
+ 
+            // Redirect the <init> call itself to the (Builder) overload.
+            insn.desc = "(Lnet/minecraft/world/item/CreativeModeTab$Builder;)V";
+ 
+            // Immediately after super() returns, 'this' is valid again -
+            // bind the real instance so the icon supplier can call its
+            // makeIcon() override.
+            InsnList after = new InsnList();
+            after.add(new VarInsnNode(Opcodes.ALOAD, 0)); // this
+            after.add(new MethodInsnNode(
+                Opcodes.INVOKESTATIC,
+                CREATIVE_MODE_TAB_ICON_HELPER,
+                "bindPendingIcon",
+                "(Ljava/lang/Object;)V",
+                false
+            ));
+            method.instructions.insert(insn, after);
+ 
+            return true;
         }
         
         for (MethodRename mr : TranslationRules.METHOD_RENAMES) {

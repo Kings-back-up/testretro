@@ -1,10 +1,10 @@
-package net.devmaster.forgecompat.transformer;
+package net.devmaster.legacylink.transformer;
 
-import net.devmaster.forgecompat.translate.TranslationRules;
-import net.devmaster.forgecompat.translate.TranslationRules.MethodRename;
-import net.devmaster.forgecompat.translate.TranslationRules.FieldToMethod;
-import net.devmaster.forgecompat.translate.TranslationRules.CapabilityRemap;
-import net.devmaster.forgecompat.translate.TranslationRules.MaterialFlags;
+import net.devmaster.legacylink.translate.TranslationRules;
+import net.devmaster.legacylink.translate.TranslationRules.MethodRename;
+import net.devmaster.legacylink.translate.TranslationRules.FieldToMethod;
+import net.devmaster.legacylink.translate.TranslationRules.CapabilityRemap;
+import net.devmaster.legacylink.translate.TranslationRules.MaterialFlags;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -14,8 +14,6 @@ import java.util.*;
 /**
  * Pure bytecode translator: rewrites 1.19.2 Forge bytecode directly to 1.20.1.
  * 
- * NO SHIM CLASSES. NO WRAPPERS. NO INDIRECTION.
- * 
  * The transformer reads TranslationRules and applies them directly:
  * - Method renames: INVOKEVIRTUAL old.name → INVOKEVIRTUAL new.name
  * - Field→method: GETFIELD x.y → INVOKEVIRTUAL x.y()
@@ -23,23 +21,30 @@ import java.util.*;
  * - Class renames: MaterialColor → MapColor (everywhere in descriptors)
  * - Capability remaps: GETSTATIC CapabilityItemHandler.X → GETSTATIC ForgeCapabilities.Y
  * - Event renames: type references rewritten
+ * - CreativeModeTab: old String constructor → new builder pattern via shim
  * 
  * Only falls back to CompatHelpers for cases where the Material is in a variable
  * (not a compile-time constant) and can't be inlined.
  */
-public class ForgeCompatTransformer {
+public class LegacyLinkTransformer {
     
     private static final String MATERIAL_INTERNAL = "net/minecraft/world/level/material/Material";
-    private static final String MATERIAL_DATA_INTERNAL = "net/devmaster/forgecompat/translate/MaterialData";
-    private static final String COMPAT_HELPERS_INTERNAL = "net/devmaster/forgecompat/translate/CompatHelpers";
+    private static final String MATERIAL_DATA_INTERNAL = "net/devmaster/legacylink/translate/MaterialData";
+    private static final String COMPAT_HELPERS_INTERNAL = "net/devmaster/legacylink/translate/CompatHelpers";
+    private static final String CREATIVE_MODE_TAB_COMPAT = "net/devmaster/legacylink/shim/CreativeModeTabCompat";
     private static final String PROPERTIES_INTERNAL = "net/minecraft/world/level/block/state/BlockBehaviour$Properties";
     
     /**
      * Transform a class. Called by the CoreMod JS bridge.
      */
     public static ClassNode transform(String className, ClassNode classNode) {
-        net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Transforming class: {}", className);
+        net.devmaster.legacylink.LegacyLink.LOGGER.info("[LegacyLink] Transforming class: {}", className);
         boolean modified = false;
+        
+        // Log if this class extends CreativeModeTab
+        if (classNode.superName != null && classNode.superName.equals("net/minecraft/world/item/CreativeModeTab")) {
+            net.devmaster.legacylink.LegacyLink.LOGGER.info("[LegacyLink] Found CreativeModeTab subclass: {}", className);
+        }
         
         // Phase 1: Remap class hierarchy (superclass, interfaces)
         modified |= remapClassHierarchy(classNode);
@@ -76,9 +81,9 @@ public class ForgeCompatTransformer {
         }
         
         if (modified) {
-            net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Successfully transformed: {}", className);
+            net.devmaster.legacylink.LegacyLink.LOGGER.info("[LegacyLink] Successfully transformed: {}", className);
         } else {
-            net.devmaster.forgecompat.ForgeCompat.LOGGER.debug("[ForgeCompat] No changes needed for: {}", className);
+            net.devmaster.legacylink.LegacyLink.LOGGER.debug("[LegacyLink] No changes needed for: {}", className);
         }
         
         return classNode;
@@ -97,14 +102,14 @@ public class ForgeCompatTransformer {
             newSuper = TranslationRules.SUPERCLASS_RENAMES.get(cn.superName);
         }
         if (newSuper != null) { 
-            net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Superclass rename: {} → {}", cn.superName, newSuper);
+            net.devmaster.legacylink.LegacyLink.LOGGER.info("[LegacyLink] Superclass rename: {} → {}", cn.superName, newSuper);
             cn.superName = newSuper; 
             modified = true; 
         }
         
         // Material → MaterialData in superclass
         if (MATERIAL_INTERNAL.equals(cn.superName)) {
-            net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Superclass Material → MaterialData");
+            net.devmaster.legacylink.LegacyLink.LOGGER.info("[LegacyLink] Superclass Material → MaterialData");
             cn.superName = MATERIAL_DATA_INTERNAL;
             modified = true;
         }
@@ -114,7 +119,7 @@ public class ForgeCompatTransformer {
             String iface = cn.interfaces.get(i);
             String renamed = TranslationRules.CLASS_RENAMES.get(iface);
             if (renamed != null) { 
-                net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Interface rename: {} → {}", iface, renamed);
+                net.devmaster.legacylink.LegacyLink.LOGGER.info("[LegacyLink] Interface rename: {} → {}", iface, renamed);
                 cn.interfaces.set(i, renamed); 
                 modified = true; 
             }
@@ -122,7 +127,7 @@ public class ForgeCompatTransformer {
             // Event renames
             String eventRenamed = TranslationRules.EVENT_RENAMES.get(iface);
             if (eventRenamed != null) { 
-                net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Event interface rename: {} → {}", iface, eventRenamed);
+                net.devmaster.legacylink.LegacyLink.LOGGER.info("[LegacyLink] Event interface rename: {} → {}", iface, eventRenamed);
                 cn.interfaces.set(i, eventRenamed); 
                 modified = true; 
             }
@@ -212,19 +217,6 @@ public class ForgeCompatTransformer {
     
     // ================================================================
     // MATERIAL PATTERN: Properties.of(Material.X) → Properties.of().ignitedByLava()
-    //
-    // This is the most complex translation. We look for the pattern:
-    //   GETSTATIC Material.X        (push the material constant)
-    //   INVOKESTATIC Properties.of(Material)Properties
-    //
-    // And rewrite to the inlined property flags:
-    //   INVOKESTATIC Properties.of()Properties
-    //   INVOKEVIRTUAL Properties.ignitedByLava()Properties   (if flammable)
-    //   INVOKEVIRTUAL Properties.pushReaction(DESTROY)Properties  (etc)
-    //
-    // If the Material is NOT a constant (it's in a variable), we rewrite to:
-    //   INVOKESTATIC CompatHelpers.of(MaterialData)Properties
-    // And the GETSTATIC Material.X becomes GETSTATIC MaterialData.X
     // ================================================================
     
     private static boolean handleMaterialPattern(MethodNode method) {
@@ -251,7 +243,7 @@ public class ForgeCompatTransformer {
                         if (flags != null) {
                             // SUCCESS: We know the material at compile time.
                             // Inline the flags directly.
-                            net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Material pattern detected: Material.{} → inlining property flags", materialName);
+                            net.devmaster.legacylink.LegacyLink.LOGGER.info("[LegacyLink] Material pattern detected: Material.{} → inlining property flags", materialName);
                             InsnList replacement = new InsnList();
                             
                             // Properties.of() — no args
@@ -321,9 +313,7 @@ public class ForgeCompatTransformer {
                             continue;
                         } else {
                             // Unknown material — fall back to CompatHelpers
-                            // Rewrite: GETSTATIC Material.X → GETSTATIC MaterialData.X
-                            // Rewrite: Properties.of(Material) → CompatHelpers.of(MaterialData)
-                            net.devmaster.forgecompat.ForgeCompat.LOGGER.warn("[ForgeCompat] Unknown material: {} - falling back to CompatHelpers", materialName);
+                            net.devmaster.legacylink.LegacyLink.LOGGER.warn("[LegacyLink] Unknown material: {} - falling back to CompatHelpers", materialName);
                             fin.owner = MATERIAL_DATA_INTERNAL;
                             min.owner = COMPAT_HELPERS_INTERNAL;
                             min.name = "of";
@@ -394,13 +384,6 @@ public class ForgeCompatTransformer {
     }
     
     // ================================================================
-    // NOTE: Registry factory pattern (DeferredRegister.create) is IDENTICAL
-    // between Forge 1.19.2 and 1.20.1. No transformation needed.
-    // The only registry-related translation is Properties.of(Material)
-    // which is handled by handleMaterialPattern().
-    // ================================================================
-    
-    // ================================================================
     // GETFIELD → INVOKEVIRTUAL (field became a method)
     // ================================================================
     
@@ -412,7 +395,7 @@ public class ForgeCompatTransformer {
                 && insn.name.equals(ftm.fieldName())
                 && insn.desc.equals(ftm.fieldDesc())) {
                 
-                net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Field→Method: {}.{} → {}.{}()", 
+                net.devmaster.legacylink.LegacyLink.LOGGER.info("[LegacyLink] Field→Method: {}.{} → {}.{}()", 
                     insn.owner, insn.name, ftm.owner(), ftm.methodName());
                 
                 // Replace GETFIELD with INVOKEVIRTUAL
@@ -434,7 +417,7 @@ public class ForgeCompatTransformer {
         // Capability remaps
         for (CapabilityRemap cr : TranslationRules.CAPABILITY_REMAPS) {
             if (insn.owner.equals(cr.oldOwner()) && insn.name.equals(cr.oldField())) {
-                net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Capability remap: {}.{} → {}.{}", 
+                net.devmaster.legacylink.LegacyLink.LOGGER.info("[LegacyLink] Capability remap: {}.{} → {}.{}", 
                     cr.oldOwner(), cr.oldField(), cr.newOwner(), cr.newField());
                 insn.owner = cr.newOwner();
                 insn.name = cr.newField();
@@ -444,7 +427,7 @@ public class ForgeCompatTransformer {
         
         // Material.X → MaterialData.X (type change only, data is the same)
         if (insn.owner.equals(MATERIAL_INTERNAL)) {
-            net.devmaster.forgecompat.ForgeCompat.LOGGER.debug("[ForgeCompat] Material constant: Material.{} → MaterialData.{}", 
+            net.devmaster.legacylink.LegacyLink.LOGGER.debug("[LegacyLink] Material constant: Material.{} → MaterialData.{}", 
                 insn.name, insn.name);
             insn.owner = MATERIAL_DATA_INTERNAL;
             return true;
@@ -459,13 +442,14 @@ public class ForgeCompatTransformer {
     
     private static boolean transformMethodCall(MethodNode method, MethodInsnNode insn) {
         // Special handling for CreativeModeTab constructor
-        if (insn.name.equals("<init>") && 
-            insn.owner.equals("net/minecraft/world/item/CreativeModeTab") &&
-            insn.desc.equals("(Ljava/lang/String;)V")) {
-            
-            net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] CreativeModeTab(String) constructor → CreativeModeTabCompat(String)");
-            insn.owner = "net/devmaster/forgecompat/shim/CreativeModeTabCompat";
-            return true;
+        if (insn.name.equals("<init>")) {
+            if (insn.owner.equals("net/minecraft/world/item/CreativeModeTab")) {
+                net.devmaster.legacylink.LegacyLink.LOGGER.info("[LegacyLink] CreativeModeTab constructor detected: {}", insn.desc);
+                
+                // Redirect all CreativeModeTab constructors to our compat class
+                insn.owner = CREATIVE_MODE_TAB_COMPAT;
+                return true;
+            }
         }
         
         for (MethodRename mr : TranslationRules.METHOD_RENAMES) {
@@ -473,7 +457,7 @@ public class ForgeCompatTransformer {
             if (insn.owner.equals(mr.owner())
                 && insn.name.equals(mr.oldName())
                 && insn.desc.equals(mr.oldDesc())) {
-                net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Method rename: {}.{}{} → {}.{}{}", 
+                net.devmaster.legacylink.LegacyLink.LOGGER.info("[LegacyLink] Method rename: {}.{}{} → {}.{}{}", 
                     mr.owner(), mr.oldName(), mr.oldDesc(), mr.owner(), mr.newName(), mr.newDesc());
                 insn.name = mr.newName();
                 insn.desc = mr.newDesc();
@@ -484,7 +468,7 @@ public class ForgeCompatTransformer {
         // Remap method owner if it's a renamed class
         String newOwner = TranslationRules.CLASS_RENAMES.get(insn.owner);
         if (newOwner != null) {
-            net.devmaster.forgecompat.ForgeCompat.LOGGER.debug("[ForgeCompat] Class rename in method owner: {} → {}", 
+            net.devmaster.legacylink.LegacyLink.LOGGER.debug("[LegacyLink] Class rename in method owner: {} → {}", 
                 insn.owner, newOwner);
             insn.owner = newOwner;
             return true;
@@ -493,7 +477,7 @@ public class ForgeCompatTransformer {
         // Remap event class owners
         String newEventOwner = TranslationRules.EVENT_RENAMES.get(insn.owner);
         if (newEventOwner != null) {
-            net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Event rename: {} → {}", 
+            net.devmaster.legacylink.LegacyLink.LOGGER.info("[LegacyLink] Event rename: {} → {}", 
                 insn.owner, newEventOwner);
             insn.owner = newEventOwner;
             return true;
@@ -501,7 +485,7 @@ public class ForgeCompatTransformer {
         
         // Material → MaterialData in method owners
         if (insn.owner.equals(MATERIAL_INTERNAL)) {
-            net.devmaster.forgecompat.ForgeCompat.LOGGER.debug("[ForgeCompat] Material method owner → MaterialData: {}", 
+            net.devmaster.legacylink.LegacyLink.LOGGER.debug("[LegacyLink] Material method owner → MaterialData: {}", 
                 insn.owner);
             insn.owner = MATERIAL_DATA_INTERNAL;
             return true;
@@ -566,7 +550,7 @@ public class ForgeCompatTransformer {
     
     public static boolean shouldTransform(String className) {
         // Don't transform ourselves
-        if (className.startsWith("net/devmaster/forgecompat/")) return false;
+        if (className.startsWith("net/devmaster/legacylink/")) return false;
         // Don't transform vanilla/forge
         if (className.startsWith("net/minecraft/")) return false;
         if (className.startsWith("net/minecraftforge/")) return false;

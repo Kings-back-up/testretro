@@ -3,19 +3,19 @@ loaderVersion="[47,)"
 license="MIT"
 
 [[mods]]
-modId="forgecompat"
+modId="legacylink"
 version="0.1.0"
-displayName="ForgeCompat"
+displayName="LegacyLink"
 authors=["DevMaster1015"]
 description='''A compatibility layer that translates 1.19.2 Forge mods to run on 1.20.1'''
 
 # CoreMod for bytecode transformation
 [[coremods]]
-id = "forgecompat"
-entrypoint = "forgecompat_coremod.js"
+id = "legacylink"
+entrypoint = "legacylink_coremod.js"
 
 # Base Forge
-[[dependencies.forgecompat]]
+[[dependencies.legacylink]]
     modId="forge"
     mandatory=true
     versionRange="[47,)"
@@ -23,7 +23,7 @@ entrypoint = "forgecompat_coremod.js"
     side="BOTH"
 
 # Base Minecraft
-[[dependencies.forgecompat]]
+[[dependencies.legacylink]]
     modId="minecraft"
     mandatory=true
     versionRange="[1.20.1,1.21)"

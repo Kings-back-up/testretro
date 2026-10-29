@@ -1,4 +1,4 @@
-package net.devmaster.forgecompat.translate;
+package net.devmaster.legacylink.translate;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -50,7 +50,7 @@ public class TranslationRules {
         // This handles the old pattern: new CreativeModeTab("name") { makeIcon() { ... } }
         SUPERCLASS_RENAMES.put(
             "net/minecraft/world/item/CreativeModeTab",
-            "net/devmaster/forgecompat/shim/CreativeModeTabCompat"
+            "net/devmaster/legacylink/shim/CreativeModeTabCompat"
         );
     }
     

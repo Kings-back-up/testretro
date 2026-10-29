@@ -1,4 +1,4 @@
-package net.devmaster.forgecompat.translate;
+package net.devmaster.legacylink.translate;
 
 /**
  * Minimal data holder for Material constants.

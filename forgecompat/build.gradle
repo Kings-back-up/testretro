@@ -101,6 +101,35 @@ tasks.named('jar', Jar).configure {
     finalizedBy 'reobfJar'
 }
 
+// Create a standalone patcher JAR
+task patcherJar(type: Jar) {
+    archiveBaseName = 'forgecompat-patcher'
+    archiveVersion = '1.0.0'
+    
+    manifest {
+        attributes([
+                'Main-Class': 'net.devmaster.forgecompat.tools.StandalonePatcher'
+        ])
+    }
+    
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    
+    from sourceSets.main.output
+    
+    // Exclude Forge/Minecraft classes to keep it small
+    exclude 'net/minecraft/**'
+    exclude 'net/minecraftforge/**'
+    exclude 'com/mojang/**'
+    
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    
+    finalizedBy 'reobfJar'
+}
+
+build.dependsOn patcherJar
+
 publishing {
     publications {
         register('mavenJava', MavenPublication) {

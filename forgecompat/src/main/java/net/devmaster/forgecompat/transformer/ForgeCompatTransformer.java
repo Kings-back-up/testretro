@@ -91,8 +91,11 @@ public class ForgeCompatTransformer {
     private static boolean remapClassHierarchy(ClassNode cn) {
         boolean modified = false;
         
-        // Superclass
+        // Superclass - check both CLASS_RENAMES and SUPERCLASS_RENAMES
         String newSuper = TranslationRules.CLASS_RENAMES.get(cn.superName);
+        if (newSuper == null) {
+            newSuper = TranslationRules.SUPERCLASS_RENAMES.get(cn.superName);
+        }
         if (newSuper != null) { 
             net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] Superclass rename: {} → {}", cn.superName, newSuper);
             cn.superName = newSuper; 
@@ -455,6 +458,16 @@ public class ForgeCompatTransformer {
     // ================================================================
     
     private static boolean transformMethodCall(MethodNode method, MethodInsnNode insn) {
+        // Special handling for CreativeModeTab constructor
+        if (insn.name.equals("<init>") && 
+            insn.owner.equals("net/minecraft/world/item/CreativeModeTab") &&
+            insn.desc.equals("(Ljava/lang/String;)V")) {
+            
+            net.devmaster.forgecompat.ForgeCompat.LOGGER.info("[ForgeCompat] CreativeModeTab(String) constructor → CreativeModeTabCompat(String)");
+            insn.owner = "net/devmaster/forgecompat/shim/CreativeModeTabCompat";
+            return true;
+        }
+        
         for (MethodRename mr : TranslationRules.METHOD_RENAMES) {
             if (mr.oldName() == null) continue; // skip placeholder entries
             if (insn.owner.equals(mr.owner())

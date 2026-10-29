@@ -17,8 +17,40 @@ import java.util.*;
  */
 public class LegacyLinkTransformationService implements ITransformationService {
     
+    private static LegacyLinkTransformationService instance;
+    
     private ModDetector detector;
     private Set<String> modsToTransform = new HashSet<>();
+    private Set<Path> runtimeFallbackMods = new HashSet<>();
+    
+    public LegacyLinkTransformationService() {
+        instance = this;
+    }
+    
+    /**
+     * Get the singleton instance.
+     */
+    public static LegacyLinkTransformationService getInstance() {
+        return instance;
+    }
+    
+    /**
+     * Enable runtime transformation fallback for a specific mod.
+     * This is used when pre-translation fails.
+     * 
+     * @param modJar Path to the mod JAR
+     */
+    public void enableRuntimeFallback(Path modJar) {
+        runtimeFallbackMods.add(modJar);
+        LegacyLink.LOGGER.info("[LegacyLink] Runtime fallback enabled for: {}", modJar.getFileName());
+    }
+    
+    /**
+     * Check if runtime fallback is enabled for a mod.
+     */
+    public boolean isRuntimeFallbackEnabled(Path modJar) {
+        return runtimeFallbackMods.contains(modJar);
+    }
     
     @Override
     public String name() {
@@ -28,7 +60,7 @@ public class LegacyLinkTransformationService implements ITransformationService {
     @Override
     public void onInitialize(IEnvironment environment) {
         LegacyLink.LOGGER.info("[LegacyLink] Transformation service initializing");
-        detector = new ModDetector();
+        detector = ModDetector.getInstance();
     }
     
     @Override

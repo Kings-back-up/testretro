@@ -2,13 +2,13 @@ package net.devmaster.legacylink.transformer;
 
 import cpw.mods.modlauncher.api.ITransformationService;
 import cpw.mods.modlauncher.api.ITransformer;
+import cpw.mods.modlauncher.api.Target;
 import net.devmaster.legacylink.LegacyLink;
 import net.devmaster.legacylink.detector.ModDetector;
 import org.objectweb.asm.tree.ClassNode;
 
 import java.nio.file.Path;
 import java.util.*;
-import java.util.Set;
 
 /**
  * LegacyLink Transformation Service
@@ -157,9 +157,9 @@ public class LegacyLinkTransformationService implements ITransformationService {
             }
             
             @Override
-            public Set<ITransformer.Target> targets() {
+            public Set<Target> targets() {
                 // Transform all classes - we'll filter in the transform method
-                return Collections.singleton(ITransformer.Target.targetClass(""));
+                return Collections.singleton(Target.targetClass(""));
             }
         });
     }

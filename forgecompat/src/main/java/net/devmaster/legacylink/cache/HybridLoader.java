@@ -2,7 +2,6 @@ package net.devmaster.legacylink.cache;
 
 import net.devmaster.legacylink.LegacyLink;
 import net.devmaster.legacylink.detector.ModDetector;
-import net.devmaster.legacylink.transformer.LegacyLinkTransformationService;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -103,15 +102,11 @@ public class HybridLoader {
                     translatedJar.getFileName());
                 
             } catch (Exception e) {
-                // Pre-translation failed - enable runtime transformation as fallback
-                LegacyLink.LOGGER.warn("[LegacyLink] Pre-translation failed, using runtime fallback: {}", 
+                // Pre-translation failed - skip this mod
+                LegacyLink.LOGGER.error("[LegacyLink] Pre-translation failed, skipping mod: {}", 
                     modJar.getFileName(), e);
                 
-                // Enable runtime transformation for this mod
-                LegacyLinkTransformationService.getInstance().enableRuntimeFallback(modJar);
-                
-                // Still register the original mod (runtime transformer will handle it)
-                registerTranslatedMod(modJar, modJar);
+                // Don't register the mod - it won't be loaded
             }
             
         } catch (Exception e) {

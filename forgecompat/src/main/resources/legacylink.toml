@@ -1,0 +1,18 @@
+# LegacyLink Configuration
+# This file allows you to override automatic mod detection
+
+# Force translation for specific mod IDs (even if they appear to support 1.20.1)
+# Example: force = ["examplemod", "anothermod"]
+force = []
+
+# Skip translation for specific mod IDs (even if they appear to need it)
+# Example: skip = ["brokenmod", "alreadyported"]
+skip = []
+
+# Notes:
+# - LegacyLink automatically detects which mods need translation based on their
+#   declared Minecraft version ranges in mods.toml
+# - For mods with open-ended ranges (like [1.19.2,)), it falls back to checking
+#   the pack_format in pack.mcmeta
+# - Use this config file to override the automatic detection if needed
+# - Changes require a game restart to take effect

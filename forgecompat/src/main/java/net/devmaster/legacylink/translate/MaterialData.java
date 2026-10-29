@@ -25,21 +25,23 @@ package net.devmaster.legacylink.translate;
  */
 public class MaterialData {
     
-    // Just the data fields that CompatHelpers reads
-    public final boolean ignitedByLava;
+    // Data fields matching 1.19.2 Material properties
+    public final boolean flammable;
     public final boolean liquid;
-    public final boolean noCollission;
+    public final boolean blocksMotion;
     public final boolean replaceable;
-    public final boolean requiresCorrectTool;
+    public final String mapColor;
+    public final String instrument;
     public final int pushReaction;
     
-    public MaterialData(boolean ignitedByLava, boolean liquid, boolean noCollission,
-                        boolean replaceable, boolean requiresCorrectTool, int pushReaction) {
-        this.ignitedByLava = ignitedByLava;
+    public MaterialData(boolean flammable, boolean liquid, boolean blocksMotion,
+                        boolean replaceable, String mapColor, String instrument, int pushReaction) {
+        this.flammable = flammable;
         this.liquid = liquid;
-        this.noCollission = noCollission;
+        this.blocksMotion = blocksMotion;
         this.replaceable = replaceable;
-        this.requiresCorrectTool = requiresCorrectTool;
+        this.mapColor = mapColor;
+        this.instrument = instrument;
         this.pushReaction = pushReaction;
     }
     
@@ -98,11 +100,12 @@ public class MaterialData {
             throw new IllegalArgumentException("Unknown material: " + name);
         }
         return new MaterialData(
-            flags.ignitedByLava(),
+            flags.flammable(),
             flags.liquid(),
-            flags.noCollission(),
+            flags.blocksMotion(),
             flags.replaceable(),
-            flags.requiresCorrectTool(),
+            flags.mapColor(),
+            flags.instrument(),
             flags.pushReaction()
         );
     }

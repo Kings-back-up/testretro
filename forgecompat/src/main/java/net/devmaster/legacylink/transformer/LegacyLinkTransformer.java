@@ -256,7 +256,7 @@ public class LegacyLinkTransformer {
                             ));
                             
                             // Chain the property flags
-                            if (flags.ignitedByLava()) {
+                            if (flags.flammable()) {
                                 replacement.add(new MethodInsnNode(
                                     Opcodes.INVOKEVIRTUAL, PROPERTIES_INTERNAL,
                                     "ignitedByLava", "()L" + PROPERTIES_INTERNAL + ";", false
@@ -268,7 +268,7 @@ public class LegacyLinkTransformer {
                                     "liquid", "()L" + PROPERTIES_INTERNAL + ";", false
                                 ));
                             }
-                            if (flags.noCollission()) {
+                            if (!flags.blocksMotion()) {
                                 replacement.add(new MethodInsnNode(
                                     Opcodes.INVOKEVIRTUAL, PROPERTIES_INTERNAL,
                                     "noCollission", "()L" + PROPERTIES_INTERNAL + ";", false
@@ -280,10 +280,17 @@ public class LegacyLinkTransformer {
                                     "replaceable", "()L" + PROPERTIES_INTERNAL + ";", false
                                 ));
                             }
-                            if (flags.requiresCorrectTool()) {
+                            // Add mapColor if specified and not NONE
+                            if (flags.mapColor() != null && !flags.mapColor().equals("NONE")) {
+                                replacement.add(new FieldInsnNode(
+                                    Opcodes.GETSTATIC,
+                                    "net/minecraft/world/level/material/MapColor",
+                                    flags.mapColor(),
+                                    "Lnet/minecraft/world/level/material/MapColor;"
+                                ));
                                 replacement.add(new MethodInsnNode(
                                     Opcodes.INVOKEVIRTUAL, PROPERTIES_INTERNAL,
-                                    "requiresCorrectToolForDrops", "()L" + PROPERTIES_INTERNAL + ";", false
+                                    "mapColor", "(Lnet/minecraft/world/level/material/MapColor;)L" + PROPERTIES_INTERNAL + ";", false
                                 ));
                             }
                             if (flags.pushReaction() != MaterialFlags.PUSH_NORMAL) {
@@ -352,9 +359,9 @@ public class LegacyLinkTransformer {
                                 if (flags != null) {
                                     // Constant fold: replace with ICONST_0 or ICONST_1
                                     boolean result = switch (helperMethod) {
-                                        case "isFlammable" -> flags.ignitedByLava();
+                                        case "isFlammable" -> flags.flammable();
                                         case "isLiquid" -> flags.liquid();
-                                        case "isSolidBlocking" -> !flags.noCollission() && !flags.liquid();
+                                        case "isSolidBlocking" -> flags.blocksMotion() && !flags.liquid();
                                         case "isReplaceable" -> flags.replaceable();
                                         default -> false;
                                     };

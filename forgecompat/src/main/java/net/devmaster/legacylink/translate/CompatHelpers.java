@@ -34,21 +34,38 @@ public class CompatHelpers {
     public static BlockBehaviour.Properties of(MaterialData material) {
         BlockBehaviour.Properties props = BlockBehaviour.Properties.of();
         
-        if (material.ignitedByLava) {
+        // Apply flammability (ignitedByLava)
+        if (material.flammable) {
             props = props.ignitedByLava();
         }
+        
+        // Apply liquid property
         if (material.liquid) {
             props = props.liquid();
         }
-        if (material.noCollission) {
+        
+        // Apply no collision if blocksMotion is false
+        if (!material.blocksMotion) {
             props = props.noCollission();
         }
+        
+        // Apply replaceable property
         if (material.replaceable) {
             props = props.replaceable();
         }
-        if (material.requiresCorrectTool) {
-            props = props.requiresCorrectToolForDrops();
+        
+        // Apply map color if specified
+        if (material.mapColor != null && !material.mapColor.equals("NONE")) {
+            try {
+                java.lang.reflect.Field colorField = net.minecraft.world.level.material.MapColor.class.getField(material.mapColor);
+                net.minecraft.world.level.material.MapColor color = (net.minecraft.world.level.material.MapColor) colorField.get(null);
+                props = props.mapColor(color);
+            } catch (Exception e) {
+                // If map color lookup fails, skip it
+            }
         }
+        
+        // Apply push reaction
         props = props.pushReaction(switch (material.pushReaction) {
             case MaterialFlags.PUSH_DESTROY -> PushReaction.DESTROY;
             case MaterialFlags.PUSH_BLOCK -> PushReaction.BLOCK;
@@ -65,7 +82,7 @@ public class CompatHelpers {
      * and rewrites to: CompatHelpers.isFlammable(material)
      */
     public static boolean isFlammable(MaterialData material) {
-        return material.ignitedByLava;
+        return material.flammable;
     }
     
     /**
@@ -79,14 +96,14 @@ public class CompatHelpers {
      * Check if a material is solid blocking.
      */
     public static boolean isSolidBlocking(MaterialData material) {
-        return !material.noCollission && !material.liquid;
+        return material.blocksMotion && !material.liquid;
     }
     
     /**
      * Check if a material can burn.
      */
     public static boolean canBurn(MaterialData material) {
-        return material.ignitedByLava;
+        return material.flammable;
     }
     
     /**

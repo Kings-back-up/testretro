@@ -6,6 +6,9 @@ echo.
 echo This will patch 1.19.2 mods to work with
 echo ForgeCompat on Minecraft 1.20.1
 echo.
+echo Place this script in your mods folder
+echo alongside your 1.19.2 mods, then run it.
+echo.
 
 REM Check if Python is installed
 python --version >nul 2>&1
@@ -16,19 +19,13 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Check if mods directory exists
-if not exist "mods" (
-    echo ERROR: mods directory not found
-    echo Please run this script from your Minecraft instance root
-    pause
-    exit /b 1
-)
-
-echo Patching mods in: %CD%\mods
+echo Patching mods in: %CD%
 echo.
 
-REM Run the Python patcher
-python patch_mods.py mods
+REM Run the Python patcher on current directory
+python patch_mods.py .
 
+echo.
+echo Done! You can now delete this script and patch_mods.py
 echo.
 pause

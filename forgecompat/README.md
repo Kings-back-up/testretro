@@ -9,10 +9,12 @@ Translates 1.19.2 Forge mod bytecode directly to 1.20.1 at class load time.
 Before using a 1.19.2 mod with ForgeCompat, you **must** patch its metadata to accept Minecraft 1.20.1. See [USING_WITH_1.19.2_MODS.md](USING_WITH_1.19.2_MODS.md) for detailed instructions.
 
 **Quick steps:**
-1. Place `patch_mods.py` in your Minecraft root folder
-2. Run `python patch_mods.py mods` (or use `patch_mods.bat` on Windows)
-3. Place your 1.19.2 mod in the `mods/` folder
-4. Launch Minecraft with ForgeCompat
+1. Place `forgecompat.jar`, `patch_mods.py`, and your 1.19.2 mod in the `mods/` folder
+2. Run `patch_mods.bat` (Windows) or `python patch_mods.py .` (any OS)
+3. Delete the patcher files (they're only needed once)
+4. Launch Minecraft
+
+**Works with:** CurseForge, Prism Launcher, MultiMC, vanilla launcher - any launcher that uses a mods folder.
 
 ## How It Works
 
@@ -86,10 +88,11 @@ cd forgecompat
 ## Testing with Homespun
 
 1. Build ForgeCompat
-2. **Run the patcher** on your 1.19.2 Homespun JAR: `python patch_mods.py mods`
-3. Place both JARs in a 1.20.1 Forge mods folder
-4. Launch and watch the log for `[ForgeCompat]` messages
-5. Check that blocks, items, creative tab, fluids, and recipes work
+2. Place `forgecompat.jar`, `patch_mods.py`, and Homespun 1.19.2 JAR in the `mods/` folder
+3. Run `patch_mods.bat` (Windows) or `python patch_mods.py .`
+4. Delete the patcher files
+5. Launch and watch the log for `[ForgeCompat]` messages
+6. Check that blocks, items, creative tab, fluids, and recipes work
 
 ## Adding new translations
 

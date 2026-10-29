@@ -116,17 +116,17 @@ def patch_jar(jar_path):
         return False
 
 def main():
-    # Get mods directory
+    # Get mods directory - default to current directory (where the script is)
     if len(sys.argv) > 1:
         mods_dir = Path(sys.argv[1])
     else:
-        mods_dir = Path('./mods')
+        mods_dir = Path('.')
     
     if not mods_dir.exists():
-        print(f"Error: Mods directory not found: {mods_dir}")
+        print(f"Error: Directory not found: {mods_dir}")
         sys.exit(1)
     
-    print(f"Scanning for 1.19.2 mods in: {mods_dir}")
+    print(f"Scanning for 1.19.2 mods in: {mods_dir.absolute()}")
     print()
     
     # Find all JAR files

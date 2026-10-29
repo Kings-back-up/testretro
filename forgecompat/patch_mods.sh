@@ -6,6 +6,9 @@ echo ""
 echo "This will patch 1.19.2 mods to work with"
 echo "ForgeCompat on Minecraft 1.20.1"
 echo ""
+echo "Place this script in your mods folder"
+echo "alongside your 1.19.2 mods, then run it."
+echo ""
 
 # Check if Python is installed
 if ! command -v python3 &> /dev/null; then
@@ -14,18 +17,13 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
-# Check if mods directory exists
-if [ ! -d "mods" ]; then
-    echo "ERROR: mods directory not found"
-    echo "Please run this script from your Minecraft instance root"
-    exit 1
-fi
-
-echo "Patching mods in: $(pwd)/mods"
+echo "Patching mods in: $(pwd)"
 echo ""
 
-# Run the Python patcher
-python3 patch_mods.py mods
+# Run the Python patcher on current directory
+python3 patch_mods.py .
 
+echo ""
+echo "Done! You can now delete this script and patch_mods.py"
 echo ""
 read -p "Press Enter to continue..."

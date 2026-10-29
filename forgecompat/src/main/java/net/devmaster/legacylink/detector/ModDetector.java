@@ -29,6 +29,8 @@ import java.util.regex.Pattern;
  */
 public class ModDetector {
     
+    private static ModDetector instance;
+    
     private static final Pattern VERSION_RANGE_PATTERN = Pattern.compile(
         "versionRange\\s*=\\s*\"([^\"]+)\""
     );
@@ -52,8 +54,18 @@ public class ModDetector {
     private Set<String> forceTranslate = new HashSet<>();
     private Set<String> skipTranslate = new HashSet<>();
     
-    public ModDetector() {
+    private ModDetector() {
         loadOverrides();
+    }
+    
+    /**
+     * Get the singleton ModDetector instance.
+     */
+    public static synchronized ModDetector getInstance() {
+        if (instance == null) {
+            instance = new ModDetector();
+        }
+        return instance;
     }
     
     /**
@@ -86,6 +98,43 @@ public class ModDetector {
                 
         } catch (Exception e) {
             LegacyLink.LOGGER.error("[LegacyLink] Error loading legacylink.toml", e);
+        }
+    }
+    
+    /**
+     * Determine if a mod JAR should be translated.
+     * Alias for shouldTranslate for clarity.
+     * 
+     * @param jarPath Path to the mod JAR
+     * @return true if the mod should be translated, false otherwise
+     */
+    public boolean needsTranslation(Path jarPath) {
+        return shouldTranslate(jarPath);
+    }
+    
+    /**
+     * Get the mod ID from a JAR file.
+     * 
+     * @param jarPath Path to the mod JAR
+     * @return The mod ID, or null if not found
+     */
+    public String getModId(Path jarPath) {
+        try (JarFile jarFile = new JarFile(jarPath.toFile())) {
+            JarEntry modsTomlEntry = jarFile.getJarEntry("META-INF/mods.toml");
+            if (modsTomlEntry == null) {
+                return null;
+            }
+            
+            String modsTomlContent;
+            try (InputStream is = jarFile.getInputStream(modsTomlEntry)) {
+                modsTomlContent = new String(is.readAllBytes());
+            }
+            
+            return extractModId(modsTomlContent);
+            
+        } catch (Exception e) {
+            LegacyLink.LOGGER.error("[LegacyLink] Error getting mod ID from: {}", jarPath, e);
+            return null;
         }
     }
     

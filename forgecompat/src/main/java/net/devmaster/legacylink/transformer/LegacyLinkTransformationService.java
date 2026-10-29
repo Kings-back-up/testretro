@@ -8,6 +8,7 @@ import org.objectweb.asm.tree.ClassNode;
 
 import java.nio.file.Path;
 import java.util.*;
+import java.util.Set;
 
 /**
  * LegacyLink Transformation Service
@@ -156,9 +157,9 @@ public class LegacyLinkTransformationService implements ITransformationService {
             }
             
             @Override
-            public com.google.common.collect.ImmutableSet<String> targets() {
+            public Set<ITransformer.Target> targets() {
                 // Transform all classes - we'll filter in the transform method
-                return com.google.common.collect.ImmutableSet.of("*");
+                return Collections.singleton(ITransformer.Target.targetClass(""));
             }
         });
     }

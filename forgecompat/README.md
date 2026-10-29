@@ -6,15 +6,17 @@ Translates 1.19.2 Forge mod bytecode directly to 1.20.1 at class load time.
 
 ## ⚠️ IMPORTANT: Patching Required
 
-Before using a 1.19.2 mod with ForgeCompat, you **must** patch its metadata to accept Minecraft 1.20.1. This is a limitation of how Forge loads mods - it validates version requirements before ForgeCompat even runs.
+Before using a 1.19.2 mod with ForgeCompat, you **must** patch its metadata to accept Minecraft 1.20.1. This is a simple one-time edit per mod.
 
-See [WHY_PATCHING_IS_NECESSARY.md](WHY_PATCHING_IS_NECESSARY.md) for detailed explanation and your options.
+**[📖 See the patching guide →](HOW_TO_PATCH_A_MOD.md)**
 
-**Quick start:**
-1. Download the patcher (Python script or Java JAR)
-2. Place it in your mods folder with your 1.19.2 mods
-3. Run it once per mod
-4. Launch Minecraft with ForgeCompat
+**Quick summary:**
+1. Open the 1.19.2 mod JAR with a ZIP editor
+2. Edit `META-INF/mods.toml`
+3. Change `versionRange="[1.19.2,1.20)"` to `versionRange="[1.19.2,1.21)"`
+4. Save and close
+
+That's it! Takes about 2 minutes per mod.
 
 ## How It Works
 
@@ -29,6 +31,21 @@ GETSTATIC CapabilityItemHandler.X →  remaps owner+field   →   GETSTATIC Forg
 
 The transformer pattern-matches old bytecode sequences and replaces them with new ones.
 
+## Installation
+
+1. **Install ForgeCompat:**
+   - Download `forgecompat-0.1.0.jar`
+   - Place it in your `mods` folder
+
+2. **Patch your 1.19.2 mods:**
+   - Follow [HOW_TO_PATCH_A_MOD.md](HOW_TO_PATCH_A_MOD.md)
+   - Takes 2 minutes per mod
+   - Only needs to be done once per mod
+
+3. **Launch Minecraft:**
+   - Start Minecraft 1.20.1 with Forge
+   - Your 1.19.2 mods should now work!
+
 ## Architecture
 
 ```
@@ -39,10 +56,8 @@ forgecompat/src/main/java/net/devmaster/forgecompat/
 │   ├── TranslationRules.java     # ALL translation rules
 │   ├── MaterialData.java         # Minimal data holder for variable Materials
 │   └── CompatHelpers.java        # Tiny helpers for edge cases
-├── transformer/
-│   └── ForgeCompatTransformer.java  # The bytecode rewriter
-└── tools/
-    └── StandalonePatcher.java    # Java-based mod patcher
+└── transformer/
+    └── ForgeCompatTransformer.java  # The bytecode rewriter
 ```
 
 ## Building
@@ -56,7 +71,7 @@ cd forgecompat
 ## Testing
 
 1. Build ForgeCompat
-2. Patch your 1.19.2 mod (see patching options below)
+2. Patch your 1.19.2 mod (see [HOW_TO_PATCH_A_MOD.md](HOW_TO_PATCH_A_MOD.md))
 3. Place both JARs in your mods folder
 4. Launch and check logs for `[ForgeCompat]` messages
 
@@ -89,6 +104,12 @@ MATERIAL_FLAGS.put("NEW_MATERIAL", new MaterialFlags(
     MaterialFlags.PUSH_NORMAL
 ));
 ```
+
+## Why Patching is Necessary
+
+Forge validates mod version requirements before loading any mods. By the time ForgeCompat runs, 1.19.2 mods have already been rejected. The patching step changes the version requirement so Forge accepts the mod, then ForgeCompat translates the bytecode at runtime.
+
+See [THE_PATCHING_PROBLEM.md](THE_PATCHING_PROBLEM.md) for a detailed explanation.
 
 ## License
 

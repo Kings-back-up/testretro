@@ -1,6 +1,7 @@
 modLoader="javafml"
 loaderVersion="[47,)"
 license="MIT"
+issueTrackerURL="https://github.com/yourusername/legacylink/issues"
 
 [[mods]]
 modId="legacylink"
@@ -11,8 +12,8 @@ description='''A compatibility layer that translates 1.19.2 Forge mods to run on
 
 # CoreMod for bytecode transformation
 [[coremods]]
-id = "legacylink"
-entrypoint = "legacylink_coremod.js"
+    id="legacylink"
+    entrypoint="legacylink_coremod.js"
 
 # Base Forge
 [[dependencies.legacylink]]

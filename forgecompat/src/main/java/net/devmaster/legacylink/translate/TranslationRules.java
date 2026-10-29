@@ -36,6 +36,7 @@ public class TranslationRules {
         // That's actually it for simple class renames.
         // Material itself was REMOVED, not renamed — it needs special handling below.
         // RegistryObject was REPLACED by DeferredHolder — also special handling.
+        // CreativeModeTab is handled separately via SUPERCLASS_RENAMES and constructor redirect.
     }
     
     // ================================================================

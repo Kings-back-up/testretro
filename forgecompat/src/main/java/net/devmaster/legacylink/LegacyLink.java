@@ -32,6 +32,9 @@ public class LegacyLink {
         LOGGER.info("Pure bytecode translation - no shims");
         LOGGER.info("========================================");
         
+        // Initialize the runtime transformer
+        net.devmaster.legacylink.transformer.LegacyLinkRuntimeTransformer.initialize();
+        
         // Register event handlers for runtime adaptation
         modEventBus.addListener(this::onCommonSetup);
         forgeEventBus.register(new RuntimeAdapter());

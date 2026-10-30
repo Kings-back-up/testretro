@@ -39,7 +39,10 @@ public class JarTranslator {
             LegacyLink.LOGGER.info("[LegacyLink] Transformed {} classes", transformedCount);
             
             // Patch metadata (mods.toml)
-            patchMetadata(tempDir);
+            boolean patched = patchMetadata(tempDir);
+            if (patched) {
+                LegacyLink.LOGGER.info("[LegacyLink] Patched metadata");
+            }
             
             // Repackage to output directory
             String outputName = sourceJar.getFileName().toString().replace(".jar", "-translated.jar");
@@ -48,6 +51,39 @@ public class JarTranslator {
             
             LegacyLink.LOGGER.info("[LegacyLink] Translation complete: {}", outputJar.getFileName());
             return outputJar;
+            
+        } finally {
+            // Clean up temp directory
+            deleteDirectory(tempDir);
+        }
+    }
+    
+    /**
+     * Patch a 1.19.2 mod JAR in place to relax version requirements.
+     * This modifies the original JAR file.
+     * 
+     * @param jarPath Path to the JAR to patch
+     */
+    public static void patchJarInPlace(Path jarPath) throws IOException {
+        LegacyLink.LOGGER.info("[LegacyLink] Patching JAR in place: {}", jarPath.getFileName());
+        
+        // Create temp directory for extraction
+        Path tempDir = Files.createTempDirectory("legacylink-patch-");
+        
+        try {
+            // Extract JAR
+            extractJar(jarPath, tempDir);
+            
+            // Patch metadata (mods.toml)
+            boolean patched = patchMetadata(tempDir);
+            
+            if (patched) {
+                // Repackage back to original location
+                repackageJar(tempDir, jarPath);
+                LegacyLink.LOGGER.info("[LegacyLink] Successfully patched: {}", jarPath.getFileName());
+            } else {
+                LegacyLink.LOGGER.warn("[LegacyLink] No metadata to patch in: {}", jarPath.getFileName());
+            }
             
         } finally {
             // Clean up temp directory
@@ -145,13 +181,15 @@ public class JarTranslator {
     
     /**
      * Patch metadata files (mods.toml) to relax version requirements.
+     * 
+     * @return true if metadata was patched, false otherwise
      */
-    private static void patchMetadata(Path dir) throws IOException {
+    private static boolean patchMetadata(Path dir) throws IOException {
         Path modsToml = dir.resolve("META-INF").resolve("mods.toml");
         
         if (!Files.exists(modsToml)) {
             LegacyLink.LOGGER.debug("[LegacyLink] No mods.toml found, skipping metadata patch");
-            return;
+            return false;
         }
         
         String content = Files.readString(modsToml);
@@ -160,7 +198,10 @@ public class JarTranslator {
         if (!patched.equals(content)) {
             Files.writeString(modsToml, patched);
             LegacyLink.LOGGER.info("[LegacyLink] Patched mods.toml");
+            return true;
         }
+        
+        return false;
     }
     
     /**

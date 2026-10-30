@@ -10,12 +10,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Hybrid loader that combines pre-translation (cache) with runtime transformation (fallback).
+ * Hybrid loader that patches 1.19.2 mods in place to work with 1.20.1.
  * 
- * Loading strategy:
- * 1. Try to load from cache (fast path)
- * 2. If not cached, pre-translate and cache (slow path, first time only)
- * 3. If pre-translation fails, enable runtime transformation as fallback
+ * Strategy:
+ * 1. Scan all mods in mods folder
+ * 2. Detect 1.19.2 mods that need patching
+ * 3. Patch them in place (modify mods.toml to relax version requirements)
+ * 4. Ask user to restart
+ * 5. On restart, patched mods load normally
  */
 public class HybridLoader {
     
@@ -40,9 +42,10 @@ public class HybridLoader {
         return instance;
     }
     
+
+    
     /**
-     * Process all mods in the mods directory.
-     * This is called during mod loading to prepare translations.
+     * Process all mods in the mods directory (legacy method, kept for compatibility).
      * 
      * @param modsDir Path to the mods directory
      */
